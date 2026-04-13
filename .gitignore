@@ -2,6 +2,7 @@
 *.dat
 *.dat.gz
 *.txt
+!simulation/CMakeLists.txt
 
 simulation/.build/
 simulation/bin/
