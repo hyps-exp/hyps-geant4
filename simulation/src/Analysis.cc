@@ -94,6 +94,9 @@ void Analysis::BeginOfPrimaryAction()
     //event.fermiMom[i]                = -999.9;
     //event.protonStopPos[i]           = -999.9;
   }
+  //pol
+  event.costDecayProtonCM0 = -999.9;
+  
   /*
   event.scatPartTpcHitNum = -1;
   event.scatPartCrystalHitNum = -1;
@@ -883,6 +886,36 @@ void Analysis::EndOfEvent( const G4Event *anEvent )
     PrintHitsInformation( anEvent, DataFile_ );
   }
 
+// primary analysis for polarization measurement                                                                                  
+  {
+    const double LambdaMass = 1.115683; // GeV/c^2
+    const double ProtonMass = 0.938272; // GeV/c^2
+    if (event.momVectorHypBeam[0] > -999. &&
+        event.momVectorScatMeson[0] > -999. &&
+        event.momVectorDecayNucleon[0] > -999.) {
+      G4ThreeVector LambdaMom(event.momVectorHypBeam[0],
+                               event.momVectorHypBeam[1],
+                               event.momVectorHypBeam[2]);
+      G4ThreeVector KMom(event.momVectorScatMeson[0],
+                          event.momVectorScatMeson[1],
+                          event.momVectorScatMeson[2]);
+      G4ThreeVector ProtonMom(event.momVectorDecayNucleon[0],
+                               event.momVectorDecayNucleon[1],
+                               event.momVectorDecayNucleon[2]);
+
+      G4ThreeVector NormY = LambdaMom.cross(KMom).unit(); // normal to reaction plane (polarization axis)                           
+
+      double E = std::sqrt(LambdaMass*LambdaMass + LambdaMom.mag2());
+      G4ThreeVector beta = LambdaMom / E;
+
+      HepLorentzVector LvProton(ProtonMom,
+                                 std::sqrt(ProtonMass*ProtonMass + ProtonMom.mag2()));
+      HepLorentzVector LvProtonCM = LvProton.boost(-beta);
+
+      event.costDecayProtonCM0 = LvProtonCM.vect().unit().dot(NormY);
+    }
+  }
+  
   tree->Fill();
 }
 
@@ -1046,6 +1079,8 @@ void Analysis::DefineHistograms()
   tree->Branch("fLengthInD",&event.fLengthInD, "fLengthInD/D");
   tree->Branch("fLengthTotal",&event.fLengthTotal, "fLengthTotal/D");
 
+  tree->Branch("costDecayProtonCM0",&event.costDecayProtonCM0, "costDecayProtonCM0/D");
+  
   char buf1[100], buf2[100];
   for (int i=0; i<NumOfPlaneCFT; i++) {
     sprintf(buf1, "Fiber%dHits", i);

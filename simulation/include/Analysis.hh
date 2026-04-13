@@ -66,6 +66,8 @@ struct Event{
   G4double fLengthInD;
   G4double fLengthTotal;
 
+  G4double costDecayProtonCM0;
+
   //Fiber
   int      FiberHits[NumOfPlaneCFT];
   int      FiberSeg[NumOfPlaneCFT][MaxHit];
