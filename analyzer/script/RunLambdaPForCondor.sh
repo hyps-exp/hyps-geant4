@@ -8,15 +8,15 @@ fi
 RUNNUM=$1
 # RUNNUM=101
 
-ANADIR=$HOME/HYPS_Geant4/CFT_LEPS_pub/Analyzer
-DATADIR=$HOME/HYPS_Geant4/CFT_LEPS_pub/Analyzer/data
-ROOTDIR=$HOME/HYPS_Geant4/CFT_LEPS_pub/Analyzer/rootfile
+ANADIR=$(cd $(dirname $0); pwd)/..
+DATADIR=$ANADIR/data
+ROOTDIR=$ANADIR/root
 
 cd $ANADIR
 
 IN_FILE=run$RUNNUM.dat
-echo cp $DATADIR/$IN_FILE\.gz $DATADIR/tmp
-cp -f $DATADIR/$IN_FILE\.gz $DATADIR/tmp
+echo cp $DATADIR/$IN_FILE\.gz $DATADIR/tmp/
+cp -f $DATADIR/$IN_FILE\.gz $DATADIR/tmp/
 
 BIN=analysLambdaProtonScat
 
@@ -26,7 +26,7 @@ BIN=analysLambdaProtonScat
 #else
 #    CONF_FILE=conf/analyzer.conf.CFT
 #fi
-CONF_FILE=conf/analyzer.conf.CFT
+CONF_FILE=$ANADIR/../param_sim/conf/geant4_hyps.conf
 ROOT_FILE=run$RUNNUM\_ana.root
 # ROOT_FILE=run$RUNNUM\_ana\_100.root
 

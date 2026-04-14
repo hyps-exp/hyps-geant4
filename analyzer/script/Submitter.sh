@@ -1,8 +1,10 @@
 #!/bin/sh
 
-RUN_START=92
-RUN_END=93
+RUN_START=1
+RUN_END=10
 RUN_NUM_1JOB=1
+
+cd $(dirname $0)
 
 i=$RUN_START
 while [ $i -le $RUN_END ]
