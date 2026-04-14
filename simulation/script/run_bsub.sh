@@ -12,14 +12,14 @@ bsub_opt="-q s"			# for a short job
 
 ###########################################################
 
-dirWork="$HOME/HYPS_Geant4/CFT_LEPS_pub/Geant4"
+dirWork=$(cd $(dirname $0); pwd)/..
 
-pathBin=$dirWork
+pathBin=$dirWork/script
 pathLog="log"
 
 ###########################################################
 bin="$pathBin/FilterAllRun.sh"
-log="$pathLog/run0$1.log"
+log="../$pathLog/run0$1.log"
 
 echo "$> bsub -o $log $bin $1 2>&1"
 bsub $bsub_opt -o $log $bin $1 2>&1
