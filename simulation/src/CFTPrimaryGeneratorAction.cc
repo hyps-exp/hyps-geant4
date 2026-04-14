@@ -5621,8 +5621,8 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda(G4Event* anEvent)
   G4ParticleDefinition* lambda  = particleTable->FindParticle("lambda");
   G4ParticleDefinition* proton = particleTable->FindParticle("proton");
 
-  // double beammom = RandFlat::shoot(1.5, 2.4);
-  double beammom = RandFlat::shoot(2.25, 2.4);
+  double beammom = RandFlat::shoot(1.5, 2.4);
+  //double beammom = RandFlat::shoot(2.25, 2.4);
   double width = 0.0;
 
   Kinema3Resonance Sigma;
