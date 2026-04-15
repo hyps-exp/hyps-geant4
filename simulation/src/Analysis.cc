@@ -899,9 +899,9 @@ void Analysis::EndOfEvent( const G4Event *anEvent )
       G4ThreeVector ProtonMom(event.momVectorDecayNucleon[0],
                                event.momVectorDecayNucleon[1],
                                event.momVectorDecayNucleon[2]);
-      G4ThreeVector zhat(0., 0., 1.);
-      G4ThreeVector NormY = LambdaMom.cross(zhat).unit(); // normal to reaction plane (polarization axis)
-      if (NormY.mag() < 1e-9) return; // Lambda along beam axis: undefined reaction plane
+      G4ThreeVector beamDir(-1., 0., 0.);
+      G4ThreeVector NormY = LambdaMom.cross(beamDir).unit(); // normal to reaction plane polarization axis
+      if (NormY.mag() < 1e-9) return; 
 
       double E = std::sqrt(LambdaMass*LambdaMass + LambdaMom.mag2());
       G4ThreeVector beta = LambdaMom / E;
