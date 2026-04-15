@@ -5767,8 +5767,10 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda(G4Event* anEvent)
     particleGun->GeneratePrimaryVertex(anEvent);
 
     anaMan_->SetPrimaryVertex(localVertexPos);
-    anaMan_->SetHypBeamMomentum(momentumLambda);
-    anaMan_->SetScatMesonMomentum(momentumK);
+    // anaMan_->SetHypBeamMomentum(momentumLambda);
+    //anaMan_->SetScatMesonMomentum(momentumK);
+    anaMan_->SetHypBeamMomentum(geomMan.Local2GlobalDir(TgtId, momentumLambda));
+    anaMan_->SetScatMesonMomentum(geomMan.Local2GlobalDir(TgtId, momentumK));
     anaMan_->SetThetaMeson(ThetaK);
     anaMan_->SetPhiMeson(PhiK);
     anaMan_->SetThetaMesonCM(ThetaKCM);
@@ -6085,8 +6087,12 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
 	particleGun->GeneratePrimaryVertex(anEvent);
 	
 	anaMan_->SetPrimaryVertex(localVertexPos);
-	anaMan_->SetHypBeamMomentum(momentumLambda);
-	anaMan_->SetScatMesonMomentum(momentumK);
+
+	//anaMan_->SetHypBeamMomentum(momentumLambda);
+	//anaMan_->SetScatMesonMomentum(momentumK);
+	anaMan_->SetHypBeamMomentum(geomMan.Local2GlobalDir(TgtId, momentumLambda));
+        anaMan_->SetScatMesonMomentum(geomMan.Local2GlobalDir(TgtId, momentumK));
+	
 	anaMan_->SetThetaMeson(ThetaK);
 	anaMan_->SetPhiMeson(PhiK);
 	anaMan_->SetThetaMesonCM(ThetaKCM);
@@ -6128,8 +6134,12 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
     particleGun->GeneratePrimaryVertex(anEvent);
 
     anaMan_->SetPrimaryVertex(localVertexPos);
-    anaMan_->SetHypBeamMomentum(momentumLambda);
-    anaMan_->SetScatMesonMomentum(momentumK);
+    
+    //anaMan_->SetHypBeamMomentum(momentumLambda);
+    //anaMan_->SetScatMesonMomentum(momentumK);
+    anaMan_->SetHypBeamMomentum(geomMan.Local2GlobalDir(TgtId, momentumLambda));
+    anaMan_->SetScatMesonMomentum(geomMan.Local2GlobalDir(TgtId, momentumK));
+    
     anaMan_->SetThetaMeson(ThetaK);
     anaMan_->SetPhiMeson(PhiK);
     anaMan_->SetThetaMesonCM(ThetaKCM);
