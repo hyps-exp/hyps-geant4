@@ -24,7 +24,7 @@
 // $Id: ExN03PrimaryGeneratorAction.hh,v 1.6 2003/09/15 15:38:14 maire Exp $
 // GEANT4 tag $Name: geant4-06-00-patch-01 $
 //
-// 
+//
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
@@ -62,7 +62,7 @@ class CFTPrimaryGeneratorAction : public G4VUserPrimaryGeneratorAction
 
   G4ParticleGun *gunKM_, *gunKP_;
   G4ParticleGun *gunPiM_, *gunPiP_, *gunPiZ_;
-  G4ParticleGun  *gunMu_, *gunG_; 
+  G4ParticleGun  *gunMu_, *gunG_;
   G4ParticleGun *gunLambda_;
   G4ParticleGun *gunProton_, *gunNeutron_;
 
@@ -103,7 +103,7 @@ class CFTPrimaryGeneratorAction : public G4VUserPrimaryGeneratorAction
   void GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent);
   void GenerateGammaP_KPlusLambda(G4Event* anEvent);
   void GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent);
-  void GenerateGammaP_KPlusSigma(G4Event* anEvent);  
+  void GenerateGammaP_KPlusSigma(G4Event* anEvent);
   void GenerateGammaP_PhiP(G4Event* anEvent);
   void GenerateUniform_PiPlus(G4Event* anEvent);
   void GenerateUniform_Proton(G4Event* anEvent);
@@ -116,6 +116,7 @@ class CFTPrimaryGeneratorAction : public G4VUserPrimaryGeneratorAction
   void EfficiencyStudyForScatPart(G4Event* anEvent, int reactionMode);
   void EfficiencyStudyForLambda(G4Event* anEvent);
   void GenerateSigmaBeam();
+  void GeneratePPiFromLambdaDecay(G4Event* anEvent);
   void calcThetaPhi(G4ThreeVector vec, double *theta, double *phi);
   int  getTargetFlag(G4ThreeVector pos);
   G4bool decayCheck(G4double ctau, G4double momentum, G4double mass, G4double dx);
@@ -127,5 +128,3 @@ class CFTPrimaryGeneratorAction : public G4VUserPrimaryGeneratorAction
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
 #endif
-
-

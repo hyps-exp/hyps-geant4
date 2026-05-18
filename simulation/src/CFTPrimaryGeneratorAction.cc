@@ -24,7 +24,7 @@
 // $Id: ExN03PrimaryGeneratorAction.cc,v 1.7 2003/09/15 15:38:18 maire Exp $
 // GEANT4 tag $Name: geant4-06-00-patch-01 $
 //
-// 
+//
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
@@ -59,6 +59,7 @@
 
 FILE *fpIn;
 FILE *fpSigBeam;
+FILE *fpLambdaDecay;
 
 const double AsymPara_Lambda = 0.75;
 
@@ -73,7 +74,7 @@ CFTPrimaryGeneratorAction::CFTPrimaryGeneratorAction(Analysis *analysisManager)
   ReactionMode_ = confMan->ReactionMode();
   PrimaryE_     = confMan->GetPrimaryE();
   GenerateThetaCM_ = confMan->GetGenerateThetaCM();
-  
+
   // default particle kinematic
 
   G4ParticleTable* particleTable = G4ParticleTable::GetParticleTable();
@@ -84,13 +85,19 @@ CFTPrimaryGeneratorAction::CFTPrimaryGeneratorAction(Analysis *analysisManager)
   particleGun->SetParticleEnergy(70.*MeV);
   particleGun->SetParticlePosition(G4ThreeVector(0.0*cm,0.*cm,0.*cm));
 
-    if (ReactionMode_ == 96 || ReactionMode_ == 102) {
+  if (ReactionMode_ == 96 || ReactionMode_ == 102) {
     fpSigBeam = fopen("SigmaBeamStudy.txt","r");
     if (!fpSigBeam) {
       std::cerr << "Cannot open SigmaBeamStudy.txt" << std::endl;
       exit(-1);
     }
-  } 
+  } else if (ReactionMode_ == 44) {
+    fpLambdaDecay = fopen("lambda_decay_info.txt","r");
+    if (!fpLambdaDecay) {
+      std::cerr << "Cannot open lambda_decay_info.txt" << std::endl;
+      exit(-1);
+    }
+  }
 
 }
 
@@ -251,6 +258,9 @@ void CFTPrimaryGeneratorAction::GeneratePrimaries(G4Event* anEvent)
   case 43 :
     GenerateGammaP_KPlusSigma(anEvent);
     break;
+  case 44 :
+    GeneratePPiFromLambdaDecay(anEvent);
+    break;
   case 103 :
     GeneratePiMinus(anEvent);
     break;
@@ -283,15 +293,15 @@ void CFTPrimaryGeneratorAction::GenerateProton(G4Event* anEvent)
   G4double theta = 45;
 
   G4ThreeVector localDir(sin(theta*Deg2Rad)*cos(phi*Deg2Rad),
-			 sin(theta*Deg2Rad)*sin(phi*Deg2Rad), 
+			 sin(theta*Deg2Rad)*sin(phi*Deg2Rad),
 			 cos(theta*Deg2Rad));
   G4ThreeVector localPos(0, 0, 0.*mm);
 
-  const DCGeomMan & geomMan=DCGeomMan::GetInstance();  
+  const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   int lnum = 0; // target
   G4ThreeVector globalDir = geomMan.Local2GlobalDir(lnum, localDir);
   G4ThreeVector globalPos = geomMan.Local2GlobalPos(lnum, localPos);
-  
+
   //gunProton_->SetParticleEnergy(PrimaryE_*MeV);
   G4double Ekin = (G4double)RandFlat::shoot(10., 150.);
   /*
@@ -326,15 +336,15 @@ void CFTPrimaryGeneratorAction::GeneratePiMinus(G4Event* anEvent)
   G4double theta = 90;
 
   G4ThreeVector localDir(sin(theta*Deg2Rad)*cos(phi*Deg2Rad),
-			 sin(theta*Deg2Rad)*sin(phi*Deg2Rad), 
+			 sin(theta*Deg2Rad)*sin(phi*Deg2Rad),
 			 cos(theta*Deg2Rad));
   G4ThreeVector localPos(0, 0, 0.*mm);
 
-  const DCGeomMan & geomMan=DCGeomMan::GetInstance();  
+  const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   int lnum = 0; // target
   G4ThreeVector globalDir = geomMan.Local2GlobalDir(lnum, localDir);
   G4ThreeVector globalPos = geomMan.Local2GlobalPos(lnum, localPos);
-  
+
   //gunProton_->SetParticleEnergy(PrimaryE_*MeV);
   //G4double Ekin = (G4double)RandFlat::shoot(10., 150.);
   G4double Ekin = 150.;
@@ -385,7 +395,7 @@ void CFTPrimaryGeneratorAction::GenerateScatProtonCheck(G4Event* anEvent)
   primary_vertex_y = 0.*mm;
   primary_vertex_z = -150.*mm;
 
-  Kinema2Body Sigma(piMinus->GetPDGMass()/GeV, 
+  Kinema2Body Sigma(piMinus->GetPDGMass()/GeV,
 		    proton->GetPDGMass()/GeV,
 		    kPlus->GetPDGMass()/GeV,
 		    mass_sigma);
@@ -434,7 +444,7 @@ void CFTPrimaryGeneratorAction::GenerateScatProtonCheck(G4Event* anEvent)
 
   /*
   PrimaryInfo pInfo;
-  pInfo.p     = momentum_k; 
+  pInfo.p     = momentum_k;
   pInfo.theta = ThetaK;
   pInfo.phi   = PhiK;
   pInfo.x     = primary_vertex_x;
@@ -453,7 +463,7 @@ void CFTPrimaryGeneratorAction::GenerateScatProtonCheck(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   /* Sigma-p scatt */
   //G4double flength=20.*mm;
   //G4double ctau=44.34; /*mm*/
@@ -491,10 +501,10 @@ void CFTPrimaryGeneratorAction::GenerateScatProtonCheck(G4Event* anEvent)
 
 #if 0
     std::cout << "------" << std::endl;
-    std::cout << "MomSigma ( " << momentumSigma.x() << ", "  
+    std::cout << "MomSigma ( " << momentumSigma.x() << ", "
 	      << momentumSigma.y() << ", " << momentumSigma.z()
 	      << ")" << std::endl;
-    std::cout << "LocalPos ( " << localSigmaPos.x() << ", "  
+    std::cout << "LocalPos ( " << localSigmaPos.x() << ", "
 	      << localSigmaPos.y() << ", " << localSigmaPos.z()
 	      << ")" << std::endl;
     {
@@ -521,8 +531,8 @@ void CFTPrimaryGeneratorAction::GenerateScatProtonCheck(G4Event* anEvent)
     //E_sigma = sqrt(p_sigma*p_sigma + m_sigma*m_sigma);
 
     /*
-    G4cout << "Length : " << totalx << ", p = " << p_sigma*1000. 
-	   << " MeV/c, Ekin = "	   << (E_sigma-m_sigma)*1000. 
+    G4cout << "Length : " << totalx << ", p = " << p_sigma*1000.
+	   << " MeV/c, Ekin = "	   << (E_sigma-m_sigma)*1000.
 	   << " MeV" << G4endl;
     */
 
@@ -551,14 +561,14 @@ void CFTPrimaryGeneratorAction::GenerateScatProtonCheck(G4Event* anEvent)
       return;
     }
 
-    SigmaScat = Kinema3Resonance(mass_sigma, 
+    SigmaScat = Kinema3Resonance(mass_sigma,
 				 scatParticle->GetPDGMass()/GeV,
 				 0.0 , mass_sigma,
 				 scatParticle->GetPDGMass()/GeV,
 				 mass_sigma, 0.0, p_sigma, 0.0,
 				 scatDistFlag);
 
-    
+
     /* scattered Sigma */
     //G4double Energy_scatSigma = SigmaScat.GetEnergy(4);
     //G4double momentum_scatSigma = SigmaScat.GetMomentum(4);
@@ -567,11 +577,11 @@ void CFTPrimaryGeneratorAction::GenerateScatProtonCheck(G4Event* anEvent)
     G4ThreeVector momentumScatSigma( mom[1], mom[2], mom[0]);
     momentumScatSigma.rotateY(ThetaSig*deg);
     momentumScatSigma.rotateZ(PhiSig*deg);
-    
+
     double ThetaScatSigCM, PhiScatSigCM;
     ThetaScatSigCM = SigmaScat.GetThetaCM(1);
     PhiScatSigCM = SigmaScat.GetPhiCM(1);
-    
+
     /*
       G4cout << "ScatSigma (" << momentumScatSigma.x() << ", "
       << momentumScatSigma.y() << ", " << momentumScatSigma.z() << ") "
@@ -592,23 +602,23 @@ void CFTPrimaryGeneratorAction::GenerateScatProtonCheck(G4Event* anEvent)
     */
     //G4cout << "ThetaPi : " << ThetaPi  << ", "
     //<< "PhiPi : " << PhiPi  << G4endl;
-    
-    
+
+
     //if (1) {
-    /* 
+    /*
        G4cout << "Sigma (" << momentumSigma.x() << ", "
       << momentumSigma.y() << ", " << momentumSigma.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatSigma (" << momentumScatSigma.x() << ", "
       << momentumScatSigma.y() << ", " << momentumScatSigma.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatProton (" << momentumScatPart.x() << ", "
       << momentumScatPart.y() << ", " << momentumScatPart.z() << ") "
       << G4endl;
 
-      G4cout << "Momentum conservation check (x, y, z) = ( " 
+      G4cout << "Momentum conservation check (x, y, z) = ( "
 	     << momentumSigma.x() - (momentumScatSigma.x()+momentumScatPart.x())
 	     << ", "
  	     << momentumSigma.y() - (momentumScatSigma.y()+momentumScatPart.y())
@@ -655,7 +665,7 @@ void CFTPrimaryGeneratorAction::GenerateScatProtonCheck(G4Event* anEvent)
     particleGun->GeneratePrimaryVertex(anEvent);
     */
 
-    /*sigma*/    
+    /*sigma*/
     /*
     particleGun->SetParticleDefinition(ssigma);
     G4ThreeVector gloMomSigma = geomMan.Local2GlobalDir(TgtId, momentumSigma);
@@ -666,7 +676,7 @@ void CFTPrimaryGeneratorAction::GenerateScatProtonCheck(G4Event* anEvent)
     particleGun->GeneratePrimaryVertex(anEvent);
     */
 
-    /*scatt sigma*/    
+    /*scatt sigma*/
     /*
     particleGun->SetParticleDefinition(sigma);
     G4ThreeVector gloMomScatSigma = geomMan.Local2GlobalDir(TgtId, momentumScatSigma);
@@ -676,7 +686,7 @@ void CFTPrimaryGeneratorAction::GenerateScatProtonCheck(G4Event* anEvent)
     particleGun->GeneratePrimaryVertex(anEvent);
     */
 
-    /*scatt proton*/    
+    /*scatt proton*/
     particleGun->SetParticleDefinition(scatParticle);
     G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
     particleGun->SetParticleMomentumDirection(gloMomScatPart);
@@ -717,7 +727,7 @@ void CFTPrimaryGeneratorAction::GenerateScatProtonCheck_SigmaPlusP(G4Event* anEv
   primary_vertex_y = 0.*mm;
   primary_vertex_z = -150.*mm;
 
-  Kinema2Body Sigma(piMinus->GetPDGMass()/GeV, 
+  Kinema2Body Sigma(piMinus->GetPDGMass()/GeV,
 		    proton->GetPDGMass()/GeV,
 		    kPlus->GetPDGMass()/GeV,
 		    mass_sigma);
@@ -766,7 +776,7 @@ void CFTPrimaryGeneratorAction::GenerateScatProtonCheck_SigmaPlusP(G4Event* anEv
 
   /*
   PrimaryInfo pInfo;
-  pInfo.p     = momentum_k; 
+  pInfo.p     = momentum_k;
   pInfo.theta = ThetaK;
   pInfo.phi   = PhiK;
   pInfo.x     = primary_vertex_x;
@@ -785,7 +795,7 @@ void CFTPrimaryGeneratorAction::GenerateScatProtonCheck_SigmaPlusP(G4Event* anEv
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   /* Sigma-p scatt */
   //G4double flength=20.*mm;
   //G4double ctau=24.04; /*mm*/
@@ -823,10 +833,10 @@ void CFTPrimaryGeneratorAction::GenerateScatProtonCheck_SigmaPlusP(G4Event* anEv
 
 #if 0
     std::cout << "------" << std::endl;
-    std::cout << "MomSigma ( " << momentumSigma.x() << ", "  
+    std::cout << "MomSigma ( " << momentumSigma.x() << ", "
 	      << momentumSigma.y() << ", " << momentumSigma.z()
 	      << ")" << std::endl;
-    std::cout << "LocalPos ( " << localSigmaPos.x() << ", "  
+    std::cout << "LocalPos ( " << localSigmaPos.x() << ", "
 	      << localSigmaPos.y() << ", " << localSigmaPos.z()
 	      << ")" << std::endl;
     {
@@ -853,8 +863,8 @@ void CFTPrimaryGeneratorAction::GenerateScatProtonCheck_SigmaPlusP(G4Event* anEv
     //E_sigma = sqrt(p_sigma*p_sigma + m_sigma*m_sigma);
 
     /*
-    G4cout << "Length : " << totalx << ", p = " << p_sigma*1000. 
-	   << " MeV/c, Ekin = "	   << (E_sigma-m_sigma)*1000. 
+    G4cout << "Length : " << totalx << ", p = " << p_sigma*1000.
+	   << " MeV/c, Ekin = "	   << (E_sigma-m_sigma)*1000.
 	   << " MeV" << G4endl;
     */
 
@@ -883,14 +893,14 @@ void CFTPrimaryGeneratorAction::GenerateScatProtonCheck_SigmaPlusP(G4Event* anEv
       return;
     }
 
-    SigmaScat = Kinema3Resonance(mass_sigma, 
+    SigmaScat = Kinema3Resonance(mass_sigma,
 				 scatParticle->GetPDGMass()/GeV,
 				 0.0 , mass_sigma,
 				 scatParticle->GetPDGMass()/GeV,
 				 mass_sigma, 0.0, p_sigma, 0.0,
 				 scatDistFlag);
 
-    
+
     /* scattered Sigma */
     //G4double Energy_scatSigma = SigmaScat.GetEnergy(4);
     //G4double momentum_scatSigma = SigmaScat.GetMomentum(4);
@@ -899,10 +909,10 @@ void CFTPrimaryGeneratorAction::GenerateScatProtonCheck_SigmaPlusP(G4Event* anEv
     G4ThreeVector momentumScatSigma( mom[1], mom[2], mom[0]);
     momentumScatSigma.rotateY(ThetaSig*deg);
     momentumScatSigma.rotateZ(PhiSig*deg);
-    
+
     double ThetaScatSigCM = SigmaScat.GetThetaCM(1);
     double PhiScatSigCM = SigmaScat.GetPhiCM(1);
-    
+
     /*
       G4cout << "ScatSigma (" << momentumScatSigma.x() << ", "
       << momentumScatSigma.y() << ", " << momentumScatSigma.z() << ") "
@@ -923,23 +933,23 @@ void CFTPrimaryGeneratorAction::GenerateScatProtonCheck_SigmaPlusP(G4Event* anEv
     */
     //G4cout << "ThetaPi : " << ThetaPi  << ", "
     //<< "PhiPi : " << PhiPi  << G4endl;
-    
-    
+
+
     //if (1) {
-    /* 
+    /*
        G4cout << "Sigma (" << momentumSigma.x() << ", "
       << momentumSigma.y() << ", " << momentumSigma.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatSigma (" << momentumScatSigma.x() << ", "
       << momentumScatSigma.y() << ", " << momentumScatSigma.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatProton (" << momentumScatPart.x() << ", "
       << momentumScatPart.y() << ", " << momentumScatPart.z() << ") "
       << G4endl;
 
-      G4cout << "Momentum conservation check (x, y, z) = ( " 
+      G4cout << "Momentum conservation check (x, y, z) = ( "
 	     << momentumSigma.x() - (momentumScatSigma.x()+momentumScatPart.x())
 	     << ", "
  	     << momentumSigma.y() - (momentumScatSigma.y()+momentumScatPart.y())
@@ -986,7 +996,7 @@ void CFTPrimaryGeneratorAction::GenerateScatProtonCheck_SigmaPlusP(G4Event* anEv
     particleGun->GeneratePrimaryVertex(anEvent);
     */
 
-    /*sigma*/    
+    /*sigma*/
     /*
     particleGun->SetParticleDefinition(ssigma);
     G4ThreeVector gloMomSigma = geomMan.Local2GlobalDir(TgtId, momentumSigma);
@@ -997,7 +1007,7 @@ void CFTPrimaryGeneratorAction::GenerateScatProtonCheck_SigmaPlusP(G4Event* anEv
     particleGun->GeneratePrimaryVertex(anEvent);
     */
 
-    /*scatt sigma*/    
+    /*scatt sigma*/
     /*
     particleGun->SetParticleDefinition(sigma);
     G4ThreeVector gloMomScatSigma = geomMan.Local2GlobalDir(TgtId, momentumScatSigma);
@@ -1007,7 +1017,7 @@ void CFTPrimaryGeneratorAction::GenerateScatProtonCheck_SigmaPlusP(G4Event* anEv
     particleGun->GeneratePrimaryVertex(anEvent);
     */
 
-    /*scatt proton*/    
+    /*scatt proton*/
     particleGun->SetParticleDefinition(scatParticle);
     G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
     particleGun->SetParticleMomentumDirection(gloMomScatPart);
@@ -1036,7 +1046,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigma(G4Event* anEvent)
   Kinema3Resonance Sigma;
   int DistFlag=3; // 1.3GeV/c (pi-, K+)
 
-  Sigma = Kinema3Resonance(piMinus->GetPDGMass()/GeV, 
+  Sigma = Kinema3Resonance(piMinus->GetPDGMass()/GeV,
 			   proton->GetPDGMass()/GeV,
 			   0.0 , mass_sigma,
 			   kaonPlus->GetPDGMass()/GeV,
@@ -1064,7 +1074,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigma(G4Event* anEvent)
   double Energy_beam = sqrt(pow(piMinus->GetPDGMass()/GeV, 2.0) + pow(beammom, 2.0));
   G4ThreeVector momentumBeam(0., 0., -beammom);
 
-  if (!(ThetaK>0.&&ThetaK<50.)) 
+  if (!(ThetaK>0.&&ThetaK<50.))
     return;
 
 
@@ -1076,8 +1086,8 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigma(G4Event* anEvent)
     primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
   /*
@@ -1090,7 +1100,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigma(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   if (1) {
     particleGun->SetParticleDefinition(kaonPlus);
     G4ThreeVector gloMomKPlus = geomMan.Local2GlobalDir(TgtId, momentumKaonPlus);
@@ -1118,7 +1128,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigma(G4Event* anEvent)
     anaMan_->SetBeamMomentum(beammom);
     /*
     PrimaryInfo pInfo;
-    pInfo.p     = momentum_k; 
+    pInfo.p     = momentum_k;
     pInfo.theta = ThetaK;
     pInfo.phi   = PhiK;
     pInfo.x     = primary_vertex_x;
@@ -1154,7 +1164,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlus(G4Event* anEvent)
   Kinema3Resonance Sigma;
   int DistFlag=2; // (pi+, K+)
 
-  Sigma = Kinema3Resonance(piPlus->GetPDGMass()/GeV, 
+  Sigma = Kinema3Resonance(piPlus->GetPDGMass()/GeV,
 			   proton->GetPDGMass()/GeV,
 			   0.0 , mass_sigma,
 			   kaonPlus->GetPDGMass()/GeV,
@@ -1182,8 +1192,8 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlus(G4Event* anEvent)
   double Energy_beam = sqrt(pow(piPlus->GetPDGMass()/GeV, 2.0) + pow(beammom, 2.0));
   G4ThreeVector momentumBeam(0., 0., -beammom);
 
-  if (!(ThetaK>0.&&ThetaK<50.)) 
-    //if (!(ThetaK>0.&&ThetaK<180.)) 
+  if (!(ThetaK>0.&&ThetaK<50.))
+    //if (!(ThetaK>0.&&ThetaK<180.))
     return;
 
 
@@ -1195,8 +1205,8 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlus(G4Event* anEvent)
     primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
   /*
@@ -1209,7 +1219,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlus(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   if (1) {
     particleGun->SetParticleDefinition(kaonPlus);
     G4ThreeVector gloMomKPlus = geomMan.Local2GlobalDir(TgtId, momentumKaonPlus);
@@ -1237,7 +1247,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlus(G4Event* anEvent)
     anaMan_->SetBeamMomentum(beammom);
     /*
     PrimaryInfo pInfo;
-    pInfo.p     = momentum_k; 
+    pInfo.p     = momentum_k;
     pInfo.theta = ThetaK;
     pInfo.phi   = PhiK;
     pInfo.x     = primary_vertex_x;
@@ -1273,9 +1283,9 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaStar(G4Event* anEvent)
   Kinema3Resonance Sigma;
   int DistFlag=3; // 1.3GeV/c (pi-, K+)
 
-  Sigma = Kinema3Resonance(piMinus->GetPDGMass()/GeV, 
+  Sigma = Kinema3Resonance(piMinus->GetPDGMass()/GeV,
 			   proton->GetPDGMass()/GeV,
-			   1.116/*Lambda*/ , piMinus->GetPDGMass()/GeV, 
+			   1.116/*Lambda*/ , piMinus->GetPDGMass()/GeV,
 			   kaonPlus->GetPDGMass()/GeV,
 			   mass_sigma_star, width, beammom, 0.0, DistFlag);
 
@@ -1301,7 +1311,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaStar(G4Event* anEvent)
   double Energy_beam = sqrt(pow(piMinus->GetPDGMass()/GeV, 2.0) + pow(beammom, 2.0));
   G4ThreeVector momentumBeam(0., 0., -beammom);
 
-  if (!(ThetaK>0.&&ThetaK<50.)) 
+  if (!(ThetaK>0.&&ThetaK<50.))
     return;
 
 
@@ -1313,8 +1323,8 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaStar(G4Event* anEvent)
     primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
   /*
@@ -1327,7 +1337,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaStar(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   if (1) {
     particleGun->SetParticleDefinition(kaonPlus);
     G4ThreeVector gloMomKPlus = geomMan.Local2GlobalDir(TgtId, momentumKaonPlus);
@@ -1355,7 +1365,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaStar(G4Event* anEvent)
     anaMan_->SetBeamMomentum(beammom);
     /*
     PrimaryInfo pInfo;
-    pInfo.p     = momentum_k; 
+    pInfo.p     = momentum_k;
     pInfo.theta = ThetaK;
     pInfo.phi   = PhiK;
     pInfo.x     = primary_vertex_x;
@@ -1392,9 +1402,9 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusStar(G4Event* anEvent)
   Kinema3Resonance Sigma;
   int DistFlag=2; // (pi+, K+)
 
-  Sigma = Kinema3Resonance(piPlus->GetPDGMass()/GeV, 
+  Sigma = Kinema3Resonance(piPlus->GetPDGMass()/GeV,
 			   proton->GetPDGMass()/GeV,
-			   1.116 /*Lambda*/ , piPlus->GetPDGMass()/GeV, 
+			   1.116 /*Lambda*/ , piPlus->GetPDGMass()/GeV,
 			   kaonPlus->GetPDGMass()/GeV,
 			   mass_sigma_star, width, beammom, 0.0, DistFlag);
 
@@ -1420,8 +1430,8 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusStar(G4Event* anEvent)
   double Energy_beam = sqrt(pow(piPlus->GetPDGMass()/GeV, 2.0) + pow(beammom, 2.0));
   G4ThreeVector momentumBeam(0., 0., -beammom);
 
-  if (!(ThetaK>0.&&ThetaK<50.)) 
-    //if (!(ThetaK>0.&&ThetaK<180.)) 
+  if (!(ThetaK>0.&&ThetaK<50.))
+    //if (!(ThetaK>0.&&ThetaK<180.))
     return;
 
 
@@ -1433,8 +1443,8 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusStar(G4Event* anEvent)
     primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
   /*
@@ -1447,7 +1457,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusStar(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   if (1) {
     particleGun->SetParticleDefinition(kaonPlus);
     G4ThreeVector gloMomKPlus = geomMan.Local2GlobalDir(TgtId, momentumKaonPlus);
@@ -1475,7 +1485,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusStar(G4Event* anEvent)
     anaMan_->SetBeamMomentum(beammom);
     /*
     PrimaryInfo pInfo;
-    pInfo.p     = momentum_k; 
+    pInfo.p     = momentum_k;
     pInfo.theta = ThetaK;
     pInfo.phi   = PhiK;
     pInfo.x     = primary_vertex_x;
@@ -1515,8 +1525,8 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_Elastic(G4Event* anEvent)
     primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
   /*
@@ -1529,7 +1539,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_Elastic(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   ThreeVector beamMomVec(0, 0, beammom);
   ThreeVector beamPosVec(primary_vertex_x, primary_vertex_y, primary_vertex_z);
   ThreeVector Vertex(primary_vertex_x, primary_vertex_y, primary_vertex_z);
@@ -1541,7 +1551,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_Elastic(G4Event* anEvent)
   Kinema3Resonance Sigma;
   int DistFlag=5; // 1.32GeV/c pi-p elastic
 
-  Sigma = Kinema3Resonance(piMinus->GetPDGMass()/GeV, 
+  Sigma = Kinema3Resonance(piMinus->GetPDGMass()/GeV,
 			   proton->GetPDGMass()/GeV,
 			   0.0 , mass_p,
 			   piMinus->GetPDGMass()/GeV,
@@ -1570,7 +1580,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_Elastic(G4Event* anEvent)
   G4ThreeVector momentumBeam(0., 0., -beammom);
 
   /*
-  if (!(ThetaK>0.&&ThetaK<50.)) 
+  if (!(ThetaK>0.&&ThetaK<50.))
     return;
   */
 
@@ -1609,7 +1619,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_Elastic(G4Event* anEvent)
     anaMan_->SetBeamMomentum(beammom);
     /*
     PrimaryInfo pInfo;
-    pInfo.p     = momentum_k; 
+    pInfo.p     = momentum_k;
     pInfo.theta = ThetaK;
     pInfo.phi   = PhiK;
     pInfo.x     = primary_vertex_x;
@@ -1644,7 +1654,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_ElasticChargeExchange(G4Event* 
   Kinema3Resonance Sigma;
   int DistFlag=7; // 1.32GeV/c pi-p -> pi0n
 
-  Sigma = Kinema3Resonance(piMinus->GetPDGMass()/GeV, 
+  Sigma = Kinema3Resonance(piMinus->GetPDGMass()/GeV,
 			   proton->GetPDGMass()/GeV,
 			   0.0 , neutron->GetPDGMass()/GeV,
 			   piZero->GetPDGMass()/GeV,
@@ -1673,7 +1683,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_ElasticChargeExchange(G4Event* 
   G4ThreeVector momentumBeam(0., 0., -beammom);
 
   /*
-  if (!(ThetaK>0.&&ThetaK<50.)) 
+  if (!(ThetaK>0.&&ThetaK<50.))
     return;
   */
 
@@ -1685,8 +1695,8 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_ElasticChargeExchange(G4Event* 
     primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
   /*
@@ -1699,7 +1709,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_ElasticChargeExchange(G4Event* 
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   if (1) {
     particleGun->SetParticleDefinition(piZero);
     G4ThreeVector gloMomPiZero = geomMan.Local2GlobalDir(TgtId, momentumPiZero);
@@ -1735,7 +1745,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_ElasticChargeExchange(G4Event* 
     anaMan_->SetBeamMomentum(beammom);
     /*
     PrimaryInfo pInfo;
-    pInfo.p     = momentum_k; 
+    pInfo.p     = momentum_k;
     pInfo.theta = ThetaK;
     pInfo.phi   = PhiK;
     pInfo.x     = primary_vertex_x;
@@ -1768,7 +1778,7 @@ void CFTPrimaryGeneratorAction::GeneratePiPlusP_Elastic(G4Event* anEvent)
   Kinema3Resonance Sigma;
   int DistFlag=6; // 1.45GeV/c pi+p elastic
 
-  Sigma = Kinema3Resonance(piPlus->GetPDGMass()/GeV, 
+  Sigma = Kinema3Resonance(piPlus->GetPDGMass()/GeV,
 			   proton->GetPDGMass()/GeV,
 			   0.0 , mass_p,
 			   piPlus->GetPDGMass()/GeV,
@@ -1797,7 +1807,7 @@ void CFTPrimaryGeneratorAction::GeneratePiPlusP_Elastic(G4Event* anEvent)
   G4ThreeVector momentumBeam(0., 0., -beammom);
 
   /*
-  if (!(ThetaK>0.&&ThetaK<50.)) 
+  if (!(ThetaK>0.&&ThetaK<50.))
     return;
   */
 
@@ -1809,8 +1819,8 @@ void CFTPrimaryGeneratorAction::GeneratePiPlusP_Elastic(G4Event* anEvent)
     primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
   /*
@@ -1823,7 +1833,7 @@ void CFTPrimaryGeneratorAction::GeneratePiPlusP_Elastic(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   if (1) {
     particleGun->SetParticleDefinition(piPlus);
     G4ThreeVector gloMomPiPlus = geomMan.Local2GlobalDir(TgtId, momentumPiPlus);
@@ -1859,7 +1869,7 @@ void CFTPrimaryGeneratorAction::GeneratePiPlusP_Elastic(G4Event* anEvent)
     anaMan_->SetBeamMomentum(beammom);
     /*
     PrimaryInfo pInfo;
-    pInfo.p     = momentum_k; 
+    pInfo.p     = momentum_k;
     pInfo.theta = ThetaK;
     pInfo.phi   = PhiK;
     pInfo.x     = primary_vertex_x;
@@ -1895,9 +1905,9 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic1(G4Event* anEvent)
   double beammom = 1.05;
 
   Kinema3Resonance Sigma;
-  int DistFlag=0; // flat 
+  int DistFlag=0; // flat
 
-  Sigma = Kinema3Resonance(piMinus->GetPDGMass()/GeV, 
+  Sigma = Kinema3Resonance(piMinus->GetPDGMass()/GeV,
 			   proton->GetPDGMass()/GeV,
 			   piMinus->GetPDGMass()/GeV , neutron->GetPDGMass()/GeV,
 			   piPlus->GetPDGMass()/GeV,
@@ -1920,7 +1930,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic1(G4Event* anEvent)
   G4ThreeVector momentumPiMinus(mom[1], mom[2], mom[0]);
   //double ThetaPi2 = Sigma.GetTheta(3);
   //double PhiPi2 = Sigma.GetPhi(3);
-  
+
   /* neutron */
   double Energy_n = Sigma.GetEnergy(4);
   //double momentum_n = Sigma.GetMomentum(4);
@@ -1939,7 +1949,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic1(G4Event* anEvent)
   double Energy_beam = sqrt(pow(piMinus->GetPDGMass()/GeV, 2.0) + pow(beammom, 2.0));
   G4ThreeVector momentumBeam(0., 0., -beammom);
 
-  if (!(ThetaPi1>0.&&ThetaPi1<50.)) 
+  if (!(ThetaPi1>0.&&ThetaPi1<50.))
     return;
 
 
@@ -1951,8 +1961,8 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic1(G4Event* anEvent)
     primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
   /*
@@ -1965,7 +1975,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic1(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   if (1) {
     particleGun->SetParticleDefinition(piPlus);
     G4ThreeVector gloMomPiPlus = geomMan.Local2GlobalDir(TgtId, momentumPiPlus);
@@ -2016,7 +2026,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic1(G4Event* anEvent)
 
     /*
     PrimaryInfo pInfo;
-    pInfo.p     = momentum_k; 
+    pInfo.p     = momentum_k;
     pInfo.theta = ThetaK;
     pInfo.phi   = PhiK;
     pInfo.x     = primary_vertex_x;
@@ -2050,9 +2060,9 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic2(G4Event* anEvent)
   double beammom = 1.05;
 
   Kinema3Resonance Sigma;
-  int DistFlag=0; // flat 
+  int DistFlag=0; // flat
 
-  Sigma = Kinema3Resonance(piMinus->GetPDGMass()/GeV, 
+  Sigma = Kinema3Resonance(piMinus->GetPDGMass()/GeV,
 			   proton->GetPDGMass()/GeV,
 			   piPlus->GetPDGMass()/GeV , neutron->GetPDGMass()/GeV,
 			   piMinus->GetPDGMass()/GeV,
@@ -2095,7 +2105,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic2(G4Event* anEvent)
   G4ThreeVector momentumBeam(0., 0., -beammom);
 
 
-  if (!(ThetaPi1>0.&&ThetaPi1<50.)) 
+  if (!(ThetaPi1>0.&&ThetaPi1<50.))
     return;
 
 
@@ -2107,8 +2117,8 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic2(G4Event* anEvent)
     primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
   /*
@@ -2121,7 +2131,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic2(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   if (1) {
     bool flagPiPScattering = PiMinusP_Scattering(anEvent, momentumPiMinus, localVertexPos);
     if (!flagPiPScattering) {
@@ -2173,7 +2183,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic2(G4Event* anEvent)
 
     /*
     PrimaryInfo pInfo;
-    pInfo.p     = momentum_k; 
+    pInfo.p     = momentum_k;
     pInfo.theta = ThetaK;
     pInfo.phi   = PhiK;
     pInfo.x     = primary_vertex_x;
@@ -2207,9 +2217,9 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic3(G4Event* anEvent)
   double beammom = 1.05;
 
   Kinema3Resonance Sigma;
-  int DistFlag=0; // flat 
+  int DistFlag=0; // flat
 
-  Sigma = Kinema3Resonance(piMinus->GetPDGMass()/GeV, 
+  Sigma = Kinema3Resonance(piMinus->GetPDGMass()/GeV,
 			   proton->GetPDGMass()/GeV,
 			   piZero->GetPDGMass()/GeV , proton->GetPDGMass()/GeV,
 			   piMinus->GetPDGMass()/GeV,
@@ -2252,7 +2262,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic3(G4Event* anEvent)
   G4ThreeVector momentumBeam(0., 0., -beammom);
 
 
-  if (!(ThetaP>0.&&ThetaP<50.)) 
+  if (!(ThetaP>0.&&ThetaP<50.))
     return;
 
 
@@ -2264,8 +2274,8 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic3(G4Event* anEvent)
     primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
   /*
@@ -2278,7 +2288,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic3(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   if (1) {
     particleGun->SetParticleDefinition(piMinus);
     G4ThreeVector gloMomPiMinus = geomMan.Local2GlobalDir(TgtId, momentumPiMinus);
@@ -2323,7 +2333,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic3(G4Event* anEvent)
 
     /*
     PrimaryInfo pInfo;
-    pInfo.p     = momentum_k; 
+    pInfo.p     = momentum_k;
     pInfo.theta = ThetaK;
     pInfo.phi   = PhiK;
     pInfo.x     = primary_vertex_x;
@@ -2354,7 +2364,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic4(G4Event* anEvent)
 
   double beammom = 1.05;
 
-  Kinema3Body Sigma = Kinema3Body(piMinus->GetPDGMass()/GeV, 
+  Kinema3Body Sigma = Kinema3Body(piMinus->GetPDGMass()/GeV,
 		      proton->GetPDGMass()/GeV,
 		      piZero->GetPDGMass()/GeV , proton->GetPDGMass()/GeV,
 		      piMinus->GetPDGMass()/GeV,
@@ -2397,7 +2407,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic4(G4Event* anEvent)
   G4ThreeVector momentumBeam(0., 0., -beammom);
 
 
-  if (!(ThetaP>0.&&ThetaP<50.)) 
+  if (!(ThetaP>0.&&ThetaP<50.))
     return;
 
 
@@ -2409,8 +2419,8 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic4(G4Event* anEvent)
     primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
   /*
@@ -2423,7 +2433,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic4(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   if (1) {
     particleGun->SetParticleDefinition(piMinus);
     G4ThreeVector gloMomPiMinus = geomMan.Local2GlobalDir(TgtId, momentumPiMinus);
@@ -2468,7 +2478,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic4(G4Event* anEvent)
 
     /*
     PrimaryInfo pInfo;
-    pInfo.p     = momentum_k; 
+    pInfo.p     = momentum_k;
     pInfo.theta = ThetaK;
     pInfo.phi   = PhiK;
     pInfo.x     = primary_vertex_x;
@@ -2500,7 +2510,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic5(G4Event* anEvent)
 
   double beammom = 1.05;
 
-  Kinema3Body Sigma = Kinema3Body(piMinus->GetPDGMass()/GeV, 
+  Kinema3Body Sigma = Kinema3Body(piMinus->GetPDGMass()/GeV,
 		      proton->GetPDGMass()/GeV,
 		      piPlus->GetPDGMass()/GeV , neutron->GetPDGMass()/GeV,
 		      piMinus->GetPDGMass()/GeV,
@@ -2543,7 +2553,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic5(G4Event* anEvent)
   G4ThreeVector momentumBeam(0., 0., -beammom);
 
 
-  if (!(ThetaPi2>0.&&ThetaPi2<50.)) 
+  if (!(ThetaPi2>0.&&ThetaPi2<50.))
     return;
 
 
@@ -2555,8 +2565,8 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic5(G4Event* anEvent)
     primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
   /*
@@ -2569,7 +2579,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic5(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   if (1) {
     G4bool flagPiPScattering = PiMinusP_Scattering(anEvent, momentumPiMinus, localVertexPos);
     if (!flagPiPScattering) {
@@ -2620,7 +2630,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic5(G4Event* anEvent)
 
     /*
     PrimaryInfo pInfo;
-    pInfo.p     = momentum_k; 
+    pInfo.p     = momentum_k;
     pInfo.theta = ThetaK;
     pInfo.phi   = PhiK;
     pInfo.x     = primary_vertex_x;
@@ -2652,7 +2662,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic6(G4Event* anEvent)
 
   double beammom = 1.05;
 
-  Kinema3Body Sigma = Kinema3Body(piMinus->GetPDGMass()/GeV, 
+  Kinema3Body Sigma = Kinema3Body(piMinus->GetPDGMass()/GeV,
 		      proton->GetPDGMass()/GeV,
 		      piZero->GetPDGMass()/GeV , neutron->GetPDGMass()/GeV,
 		      piZero->GetPDGMass()/GeV,
@@ -2695,7 +2705,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic6(G4Event* anEvent)
   G4ThreeVector momentumBeam(0., 0., -beammom);
 
   /*
-  if (!(ThetaK>0.&&ThetaK<50.)) 
+  if (!(ThetaK>0.&&ThetaK<50.))
     return;
   */
 
@@ -2707,8 +2717,8 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic6(G4Event* anEvent)
     primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
   /*
@@ -2721,7 +2731,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic6(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   if (1) {
     particleGun->SetParticleDefinition(piZero);
     G4ThreeVector gloMomPiZero1 = geomMan.Local2GlobalDir(TgtId, momentumPiZero1);
@@ -2765,7 +2775,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_InElastic6(G4Event* anEvent)
 
     /*
     PrimaryInfo pInfo;
-    pInfo.p     = momentum_k; 
+    pInfo.p     = momentum_k;
     pInfo.theta = ThetaK;
     pInfo.phi   = PhiK;
     pInfo.x     = primary_vertex_x;
@@ -2810,8 +2820,8 @@ void CFTPrimaryGeneratorAction::GeneratePPScat(G4Event* anEvent)
     primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
   /*
@@ -2836,7 +2846,7 @@ void CFTPrimaryGeneratorAction::GeneratePPScat(G4Event* anEvent)
   Kinema3Resonance PPScat;
   int DistFlag=0; // flat distribution
 
-  PPScat = Kinema3Resonance(proton->GetPDGMass()/GeV, 
+  PPScat = Kinema3Resonance(proton->GetPDGMass()/GeV,
 			   proton->GetPDGMass()/GeV,
 			   0.0 , mass_p,
 			   proton->GetPDGMass()/GeV,
@@ -2865,11 +2875,11 @@ void CFTPrimaryGeneratorAction::GeneratePPScat(G4Event* anEvent)
   G4ThreeVector momentumBeam(0., 0., -beammom);
 
   /*
-  if (!(ThetaK>0.&&ThetaK<50.)) 
+  if (!(ThetaK>0.&&ThetaK<50.))
     return;
   */
 
-  
+
   if (1) {
     particleGun->SetParticleDefinition(proton);
     G4ThreeVector gloMomP1 = geomMan.Local2GlobalDir(TgtId, momentumP1);
@@ -2905,7 +2915,7 @@ void CFTPrimaryGeneratorAction::GeneratePPScat(G4Event* anEvent)
     anaMan_->SetBeamMomentum(beammom);
     /*
     PrimaryInfo pInfo;
-    pInfo.p     = momentum_k; 
+    pInfo.p     = momentum_k;
     pInfo.theta = ThetaK;
     pInfo.phi   = PhiK;
     pInfo.x     = primary_vertex_x;
@@ -2936,7 +2946,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_KPlusPiLambda(G4Event* anEvent)
 
   double beammom = 1.32;
 
-  Kinema3Body Sigma = Kinema3Body(piMinus->GetPDGMass()/GeV, 
+  Kinema3Body Sigma = Kinema3Body(piMinus->GetPDGMass()/GeV,
 		      proton->GetPDGMass()/GeV,
 		      piMinus->GetPDGMass()/GeV , lambda->GetPDGMass()/GeV,
 		      kaonPlus->GetPDGMass()/GeV,
@@ -2957,7 +2967,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_KPlusPiLambda(G4Event* anEvent)
   G4ThreeVector momentumBeam(0., 0., -beammom);
 
 
-  if (!(ThetaK>0.&&ThetaK<50.)) 
+  if (!(ThetaK>0.&&ThetaK<50.))
     return;
 
 
@@ -2969,8 +2979,8 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_KPlusPiLambda(G4Event* anEvent)
     primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
   /*
@@ -2983,7 +2993,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_KPlusPiLambda(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   if (1) {
     particleGun->SetParticleDefinition(kaonPlus);
     G4ThreeVector gloMomK = geomMan.Local2GlobalDir(TgtId, momentumK);
@@ -3015,7 +3025,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_KPlusPiLambda(G4Event* anEvent)
 
     /*
     PrimaryInfo pInfo;
-    pInfo.p     = momentum_k; 
+    pInfo.p     = momentum_k;
     pInfo.theta = ThetaK;
     pInfo.phi   = PhiK;
     pInfo.x     = primary_vertex_x;
@@ -3051,9 +3061,9 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda(G4Event* anEvent)
   Kinema3Resonance Sigma;
   int DistFlag=8; // 1.05 K0Lambda
 
-  Sigma = Kinema3Resonance(piMinus->GetPDGMass()/GeV, 
+  Sigma = Kinema3Resonance(piMinus->GetPDGMass()/GeV,
 			   proton->GetPDGMass()/GeV,
-			   0.0 , 
+			   0.0 ,
 			   lambda->GetPDGMass()/GeV,
 			   kaon0->GetPDGMass()/GeV,
 			   lambda->GetPDGMass()/GeV,
@@ -3082,7 +3092,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda(G4Event* anEvent)
   G4ThreeVector momentumBeam(0., 0., -beammom);
 
 
-  if (!(ThetaK>0.&&ThetaK<50.)) 
+  if (!(ThetaK>0.&&ThetaK<50.))
     return;
 
   //std::cout << "momentumK      = " << momentumK << std::endl;
@@ -3096,8 +3106,8 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda(G4Event* anEvent)
     primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
   /*
@@ -3110,7 +3120,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   if (1) {
     particleGun->SetParticleDefinition(kaon0);
     G4ThreeVector gloMomK = geomMan.Local2GlobalDir(TgtId, momentumK);
@@ -3141,7 +3151,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda(G4Event* anEvent)
 					//1.0, // Polarization
 					0.0, // Polarization
 					AsymPara_Lambda, // Asymmetry parameter
-					NormY, 
+					NormY,
 					momentumLambda,
 					localVertexPos,
 					false, // phi flag, lambda is opposite for x axis
@@ -3149,7 +3159,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda(G4Event* anEvent)
 					false // charge flag
 					);
 
-      //std::cout << "ThetaLambda = " << ThetaLambda 
+      //std::cout << "ThetaLambda = " << ThetaLambda
       //<< "PhiLambda" << PhiLambda << std::endl;
       G4ThreeVector localDecayPos  = LambdaDecay.GetDecayPos();
       G4ThreeVector globalDecayPos = geomMan.Local2GlobalPos(TgtId, localDecayPos);
@@ -3214,7 +3224,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda(G4Event* anEvent)
 
     /*
     PrimaryInfo pInfo;
-    pInfo.p     = momentum_k; 
+    pInfo.p     = momentum_k;
     pInfo.theta = ThetaK;
     pInfo.phi   = PhiK;
     pInfo.x     = primary_vertex_x;
@@ -3244,7 +3254,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
   G4ParticleDefinition* spiMinus = particleTable->FindParticle("spi-");
   G4ParticleDefinition* piMinus = particleTable->FindParticle("pi-");
   G4ParticleDefinition* kaon0  = particleTable->FindParticle("kaon0");
-  G4ParticleDefinition* lambda  = particleTable->FindParticle("lambda");  
+  G4ParticleDefinition* lambda  = particleTable->FindParticle("lambda");
   G4ParticleDefinition* ulambda  = particleTable->FindParticle("ulambda");
   //G4ParticleDefinition* lambda  = particleTable->FindParticle("sigma0");
   G4ParticleDefinition* proton = particleTable->FindParticle("proton");
@@ -3259,9 +3269,9 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
   Kinema3Resonance Sigma;
   int DistFlag=8; // 1.05 K0Lambda
 
-  Sigma = Kinema3Resonance(piMinus->GetPDGMass()/GeV, 
+  Sigma = Kinema3Resonance(piMinus->GetPDGMass()/GeV,
 			   proton->GetPDGMass()/GeV,
-			   0.0 , 
+			   0.0 ,
 			   lambda->GetPDGMass()/GeV,
 			   kaon0->GetPDGMass()/GeV,
 			   lambda->GetPDGMass()/GeV,
@@ -3289,7 +3299,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
   G4ThreeVector momentumBeam(0., 0., -beammom);
 
 
-  if (!(ThetaK>0.&&ThetaK<50.)) 
+  if (!(ThetaK>0.&&ThetaK<50.))
     return;
 
 
@@ -3302,8 +3312,8 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
     primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
   */
@@ -3313,8 +3323,8 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
   //primary_vertex_x = (G4double)RandGauss::shoot(0., 8.)*mm;
   //primary_vertex_y = (G4double)RandGauss::shoot(0., 8.)*mm;
   primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-  primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-					       primary_vertex_y, 
+  primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+					       primary_vertex_y,
 					       primary_vertex_z));
   if (primaryTgtType != 0)
     return;
@@ -3325,7 +3335,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
 
   /* Sigma-p scatt */
   //G4double flength=20.*mm;
@@ -3342,9 +3352,9 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
   G4double react_rate_sigmaPn = 0.01274; // 1/mm /* 30mb and LH2 target*/
   G4double react_rate_sigma0p = 0.01274; // 1/mm /* 30mb and LH2 target*/
 
-  G4double pth_sigmaPn = 0.6345; 
-  G4double pth_sigma0p = 0.6435; 
-  
+  G4double pth_sigmaPn = 0.6345;
+  G4double pth_sigma0p = 0.6435;
+
 
   G4double dx = 0.1*mm; //mm
   G4double totalx=0.0;  //mm
@@ -3369,10 +3379,10 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 
 #if 0
     std::cout << "------" << std::endl;
-    std::cout << "MomLambda ( " << momentumLambda.x() << ", "  
+    std::cout << "MomLambda ( " << momentumLambda.x() << ", "
 	      << momentumLambda.y() << ", " << momentumLambda.z()
 	      << ")" << std::endl;
-    std::cout << "LocalPos ( " << localLambdaPos.x() << ", "  
+    std::cout << "LocalPos ( " << localLambdaPos.x() << ", "
 	      << localLambdaPos.y() << ", " << localLambdaPos.z()
 	      << ")" << std::endl;
     {
@@ -3387,7 +3397,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
     flagScattering=false;
     flagSigmaPlusN=false;
     flagSigma0P=false;
-    
+
     flagDecay = decayCheck(ctau, p_lambda, m_lambda, dx/mm );
 
     //check of the position
@@ -3407,8 +3417,8 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
       //E_sigma = sqrt(p_sigma*p_sigma + m_sigma*m_sigma);
     }
     /*
-    G4cout << "Length : " << totalx << ", p = " << p_lambda*1000. 
-	   << " MeV/c, Ekin = "	   << (E_lambda-m_lambda)*1000. 
+    G4cout << "Length : " << totalx << ", p = " << p_lambda*1000.
+	   << " MeV/c, Ekin = "	   << (E_lambda-m_lambda)*1000.
 	   << " MeV" << G4endl;
     */
     if (fabs(p_lambda)<0.000001) {
@@ -3468,7 +3478,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
       G4ThreeVector momentumDecayN(mom[1], mom[2], mom[0]);
       //double ThetaDecayN = LambdaDecay.GetTheta(4);
       //double PhiDecayN = LambdaDecay.GetPhi(4);
-      
+
       /* pi */
       double Energy_decayPi = LambdaDecay.GetEnergy(5);
       double momentum_decayPi = LambdaDecay.GetMomentum(5);
@@ -3476,7 +3486,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
       G4ThreeVector momentumDecayPi( mom[1], mom[2], mom[0]);
       //double ThetaDecayPi = LambdaDecay.GetTheta(5);
       //double PhiDecayPi = LambdaDecay.GetPhi(5);
-      
+
       // Neucleon momentum at beam frame
       momentumDecayN.rotateY(ThetaLambda*deg);
       momentumDecayN.rotateZ(PhiLambda*deg);
@@ -3486,32 +3496,32 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
       momentumDecayPi.rotateZ(PhiLambda*deg);
 
       /*
-      std::cout << "LambdaMom = ( " << momentumLambda.x() << ", " 
+      std::cout << "LambdaMom = ( " << momentumLambda.x() << ", "
 		<< momentumLambda.y() << ", " << momentumLambda.z()
 		<< ")" << std::endl;
-      std::cout << "DecayN = ( " << momentumDecayN.x() << ", " 
+      std::cout << "DecayN = ( " << momentumDecayN.x() << ", "
 		<< momentumDecayN.y() << ", " << momentumDecayN.z()
 		<< ")" << std::endl;
-      std::cout << "DecayPi = ( " << momentumDecayPi.x() << ", " 
+      std::cout << "DecayPi = ( " << momentumDecayPi.x() << ", "
 		<< momentumDecayPi.y() << ", " << momentumDecayPi.z()
 		<< ")" << std::endl;
 
-      std::cout << "Delta = ( " 
+      std::cout << "Delta = ( "
 		<< momentumLambda.x()-momentumDecayN.x()-momentumDecayPi.x()
-		<< ", " 
-		<< momentumLambda.y()-momentumDecayN.y()-momentumDecayPi.y() 
-		<< ", " 
+		<< ", "
+		<< momentumLambda.y()-momentumDecayN.y()-momentumDecayPi.y()
+		<< ", "
 		<< momentumLambda.z()-momentumDecayN.z()-momentumDecayPi.z()
 		<< ")" << std::endl;
       */
-      double ThetaDecayNatBeamFrame, PhiDecayNatBeamFrame; 
-      calcThetaPhi(momentumDecayN, 
-		   &ThetaDecayNatBeamFrame, 
+      double ThetaDecayNatBeamFrame, PhiDecayNatBeamFrame;
+      calcThetaPhi(momentumDecayN,
+		   &ThetaDecayNatBeamFrame,
 		   &PhiDecayNatBeamFrame);
 
-      double ThetaDecayPiatBeamFrame, PhiDecayPiatBeamFrame; 
-      calcThetaPhi(momentumDecayPi, 
-		   &ThetaDecayPiatBeamFrame, 
+      double ThetaDecayPiatBeamFrame, PhiDecayPiatBeamFrame;
+      calcThetaPhi(momentumDecayPi,
+		   &ThetaDecayPiatBeamFrame,
 		   &PhiDecayPiatBeamFrame);
       /*
       std::cout << "ThetaDecayNatBeamFrame: " << ThetaDecayNatBeamFrame
@@ -3536,16 +3546,16 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
       if (decayMode==1) {
 	/* pp scatt */
 	G4double proton_react_rate = 0.0001274; // 1/mm /* 30mb and LH2 target*/
-	
+
 	double Ekin_p[14] = {18.2, 19.8, 25.63, 30.14, 39.4, 68.3, 95., 98., 118., 142.,
 			     147., 172., 250., 312.};
-	
+
 	double pp_cs_table[14] = { 351.8, 314.1, 238.7, 188.4, 138.2, 81.6,
 				   56.5, 56.5, 52.7, 52.7, 51.5, 50.2, 50.2, 46.4};
-	
+
 	double Ekin = (sqrt(momentum_decayN*momentum_decayN+m_proton*m_proton)
 		       -m_proton)*1000. ;// MeV
-	
+
 	int index_Ekin=-1;
 	double pp_cs;
 	for (int i=0; i<14; i++) {
@@ -3573,36 +3583,36 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 	    }
 	  }
 	}
-	
+
 	if (index_Ekin<0 || index_Ekin>=14) {
 	  fprintf(stderr, "PrimaryGeneratorAction::GeneratePiKSigmaScat2 invalid index_Ekin : %d", index_Ekin);
 	  exit(-1);
 	}
 	proton_react_rate *= pp_cs/30.;
-	
+
 	G4double dy = 0.5*mm; //mm
 	G4double totaly=0.0;  //mm
-	
+
 	G4ThreeVector localProtonPos = localDecayPos;
 	int flagTgtType2 = -1;
-	
+
 	int nIte=0;
 	while (1) {
 	  flagTgtType2 = -1;
 	  totaly += dy;
 	  localProtonPos += momentumDecayN*dy/momentumDecayN.mag();
-	  
+
 	  flagProtonScattering=false;
-	  
+
 	  flagTgtType2 = getTargetFlag(localProtonPos);
-	  
+
 	  if (flagTgtType2 == 0 || flagTgtType2 == 1) {
 	    flagProtonScattering  = scatteringCheck(proton_react_rate, dy/mm);
 	  }
-	  
+
 	  if (flagProtonScattering)
 	    break;
-	  
+
 	  nIte++;
 	  if (nIte>1000)
 	    break;
@@ -3611,7 +3621,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 	/* pi-p scatt */
 	G4double pion_react_rate = 0.0001274; // 1/mm /* 30mb and LH2 target*/
 	//G4double pion_react_rate = 0.0002548; // 1/mm /* 60mb and LH2 target*/
-	
+
 	double p_pi_table[8] = {0.1479, 0.1738, 0.1883, 0.2123, 0.2379, 0.2712, 0.2983, 0.3228};
 
 	double pip_cs_table[8] = { 3.4, 5.12, 6.64, 9.8, 15.2, 19.4, 18.3, 14.8};
@@ -3649,7 +3659,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 	  exit(-1);
 	}
 	pion_react_rate *= pip_cs/30.;
-	
+
 	G4double dz = 0.5*mm; //mm
 	G4double totalz=0.0;  //mm
 
@@ -3668,7 +3678,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 	  flagTgtType3 = -1;
 	  totalz += dz;
 	  localPionPos += momentumDecayPi*dz/momentumDecayPi.mag();
-	  
+
 	  flagPionScattering=false;
 	  flagPionDecay=false;
 
@@ -3677,7 +3687,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 	  if (flagTgtType3 == 0) {
 	    flagPionScattering  = scatteringCheck(pion_react_rate, dz/mm);
 	  }
-	  
+
 	  if (flagPionScattering)
 	    break;
 
@@ -3704,24 +3714,24 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 	  } else {
 	    return;
 	  }
-	  //std::cout << scatParticle->GetPDGMass()/GeV << std::endl; 
+	  //std::cout << scatParticle->GetPDGMass()/GeV << std::endl;
 	  Kinema3Resonance NNScat;
-	  NNScat = Kinema3Resonance(decayNucl->GetPDGMass()/GeV, 
+	  NNScat = Kinema3Resonance(decayNucl->GetPDGMass()/GeV,
 				    scatParticle->GetPDGMass()/GeV,
 				    0.0 , decayNucl->GetPDGMass()/GeV,
 				    scatParticle->GetPDGMass()/GeV,
 				    decayNucl->GetPDGMass()/GeV,
 				    0.0, momentum_decayN, 0.0, scatDistFlag);
-	  
+
 	  /* scattered Necleon */
 	  G4double Energy_scatN = NNScat.GetEnergy(4);
 	  //G4double momentum_scatN = NNScat.GetMomentum(4);
 	  NNScat.GetMomentum(4,mom);
 	  G4ThreeVector momentumScatN( mom[1], mom[2], mom[0]);
-	  
+
 	  momentumScatN.rotateY(ThetaDecayNatBeamFrame*deg);
 	  momentumScatN.rotateZ(PhiDecayNatBeamFrame*deg);
-	  
+
 	  /* scattered Proton or Deuteron*/
 	  G4double Energy_scatPart = NNScat.GetEnergy(5);
 	  //G4double momentum_scatPart = NNScat.GetMomentum(5);
@@ -3729,36 +3739,36 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 	  G4ThreeVector momentumScatPart(mom[1], mom[2], mom[0]);
 	  momentumScatPart.rotateY(ThetaDecayNatBeamFrame*deg);
 	  momentumScatPart.rotateZ(PhiDecayNatBeamFrame*deg);
-	  
+
 	  /*
-	    std::cout << "DecayN = ( " << momentumDecayN.x() << ", " 
+	    std::cout << "DecayN = ( " << momentumDecayN.x() << ", "
 	    << momentumDecayN.y() << ", " << momentumDecayN.z()
 	    << ")" << std::endl;
-	    
-	    std::cout << "ScatN = ( " << momentumScatN.x() << ", " 
+
+	    std::cout << "ScatN = ( " << momentumScatN.x() << ", "
 	    << momentumScatN.y() << ", " << momentumScatN.z()
 	    << ")" << std::endl;
-	    
-	    std::cout << "ScatPart = ( " << momentumScatPart.x() << ", " 
+
+	    std::cout << "ScatPart = ( " << momentumScatPart.x() << ", "
 	    << momentumScatPart.y() << ", " << momentumScatPart.z()
 	    << ")" << std::endl;
-	    
-	    std::cout << "Delta = ( " 
+
+	    std::cout << "Delta = ( "
 	    << momentumDecayN.x()-momentumScatN.x()-momentumScatPart.x()
-	    << ", " 
+	    << ", "
 	    << momentumDecayN.y()-momentumScatN.y()-momentumScatPart.y()
-	    << ", " 
+	    << ", "
 	    << momentumDecayN.z()-momentumScatN.z()-momentumScatPart.z()
 	    << ")" << std::endl;
 	  */
-	  
+
 	  particleGun->SetParticleDefinition(kaon0);
 	  G4ThreeVector gloMomK = geomMan.Local2GlobalDir(TgtId, momentumK);
 	  particleGun->SetParticleMomentumDirection(gloMomK);
 	  particleGun->SetParticleEnergy((Energy_k - kaon0->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalVertexPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
+
 	  /* beam */
 	  particleGun->SetParticleDefinition(spiMinus);
 	  G4ThreeVector gloMomBeam = geomMan.Local2GlobalDir(TgtId, momentumBeam);
@@ -3766,8 +3776,8 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 	  particleGun->SetParticleEnergy((Energy_beam - spiMinus->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalVertexPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
-	  /*sigma*/    
+
+	  /*sigma*/
 	  /*
 	  particleGun->SetParticleDefinition(ssigma);
 	  G4ThreeVector gloMomSigma = geomMan.Local2GlobalDir(TgtId, momentumSigma);
@@ -3776,7 +3786,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 	  particleGun->SetParticleEnergy((Energy_sig - sigma->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalDecayPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  */	  
+	  */
 
 	  /* decay pi */
 	  particleGun->SetParticleDefinition(decayPi);
@@ -3785,8 +3795,8 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 	  particleGun->SetParticleEnergy((Energy_decayPi - decayPi->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalDecayPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
-	  /*scat proton*/    
+
+	  /*scat proton*/
 	  //G4cout << "pp scat" << G4endl;
 
 	  particleGun->SetParticleDefinition(decayNucl);
@@ -3795,16 +3805,16 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 	  particleGun->SetParticleEnergy((Energy_scatN - decayNucl->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalNNScatPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
-	  /*scatt proton*/    
+
+	  /*scatt proton*/
 	  particleGun->SetParticleDefinition(scatParticle);
 	  G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
 	  particleGun->SetParticleMomentumDirection(gloMomScatPart);
 	  particleGun->SetParticleEnergy((Energy_scatPart - scatParticle->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalNNScatPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
-	  
+
+
 	  anaMan_->SetPrimaryVertex(localVertexPos);
 	  anaMan_->SetHypBeamMomentum(momentumLambda);
 	  anaMan_->SetScatMesonMomentum(momentumK);
@@ -3816,13 +3826,13 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 	  anaMan_->SetNNScatPos(localNNScatPos);
 	  anaMan_->SetDecayFlag(decayMode);
 	  anaMan_->SetNNScatFlag();
-	  anaMan_->SetNNScatTarget(flagTgtType2);	
+	  anaMan_->SetNNScatTarget(flagTgtType2);
 	  anaMan_->SetScatProtonMomentum(momentumScatPart);
 	  anaMan_->SetFlightLengthInTarget(dxInH, 0);
 	  anaMan_->SetDecayPiMomentum(momentumDecayPi);
 	  anaMan_->SetDecayNucleonMomentum(momentumDecayN);
 	  anaMan_->SetBeamMomentum(beammom);
-	  
+
 	  return;
 	}
 
@@ -3839,24 +3849,24 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 	  } else {
 	    return;
 	  }
-	  //std::cout << scatParticle->GetPDGMass()/GeV << std::endl; 
+	  //std::cout << scatParticle->GetPDGMass()/GeV << std::endl;
 	  Kinema3Resonance PiNScat;
-	  PiNScat = Kinema3Resonance(decayPi->GetPDGMass()/GeV, 
+	  PiNScat = Kinema3Resonance(decayPi->GetPDGMass()/GeV,
 				     scatParticle->GetPDGMass()/GeV,
 				     0.0 , decayPi->GetPDGMass()/GeV,
 				     scatParticle->GetPDGMass()/GeV,
 				     decayPi->GetPDGMass()/GeV,
 				     0.0, momentum_decayPi, 0.0, scatDistFlag);
-	  
+
 	  /* scattered pion */
 	  G4double Energy_scatPi = PiNScat.GetEnergy(4);
 	  //G4double momentum_scatPi = PiNScat.GetMomentum(4);
 	  PiNScat.GetMomentum(4,mom);
 	  G4ThreeVector momentumScatPi( mom[1], mom[2], mom[0]);
-	  
+
 	  momentumScatPi.rotateY(ThetaDecayPiatBeamFrame*deg);
 	  momentumScatPi.rotateZ(PhiDecayPiatBeamFrame*deg);
-	  
+
 	  /* scattered Proton or Deuteron*/
 	  G4double Energy_scatPart = PiNScat.GetEnergy(5);
 	  //G4double momentum_scatPart = PiNScat.GetMomentum(5);
@@ -3864,36 +3874,36 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 	  G4ThreeVector momentumScatPart(mom[1], mom[2], mom[0]);
 	  momentumScatPart.rotateY(ThetaDecayPiatBeamFrame*deg);
 	  momentumScatPart.rotateZ(PhiDecayPiatBeamFrame*deg);
-	  
+
 	  /*
-	    std::cout << "DecayPi = ( " << momentumDecayPi.x() << ", " 
+	    std::cout << "DecayPi = ( " << momentumDecayPi.x() << ", "
 	    << momentumDecayPi.y() << ", " << momentumDecayPi.z()
 	    << ")" << std::endl;
-	    
-	    std::cout << "ScatPi = ( " << momentumScatPi.x() << ", " 
+
+	    std::cout << "ScatPi = ( " << momentumScatPi.x() << ", "
 	    << momentumScatPi.y() << ", " << momentumScatPi.z()
 	    << ")" << std::endl;
-	    
-	    std::cout << "ScatPart = ( " << momentumScatPart.x() << ", " 
+
+	    std::cout << "ScatPart = ( " << momentumScatPart.x() << ", "
 	    << momentumScatPart.y() << ", " << momentumScatPart.z()
 	    << ")" << std::endl;
-	    
-	    std::cout << "Delta = ( " 
+
+	    std::cout << "Delta = ( "
 	    << momentumDecayPi.x()-momentumScatPi.x()-momentumScatPart.x()
-	    << ", " 
+	    << ", "
 	    << momentumDecayPi.y()-momentumScatPi.y()-momentumScatPart.y()
-	    << ", " 
+	    << ", "
 	    << momentumDecayPi.z()-momentumScatPi.z()-momentumScatPart.z()
 	    << ")" << std::endl;
 	  */
-	  
+
 	  particleGun->SetParticleDefinition(kaon0);
 	  G4ThreeVector gloMomK = geomMan.Local2GlobalDir(TgtId, momentumK);
 	  particleGun->SetParticleMomentumDirection(gloMomK);
 	  particleGun->SetParticleEnergy((Energy_k - kaon0->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalVertexPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
+
 	  /* beam */
 	  particleGun->SetParticleDefinition(spiMinus);
 	  G4ThreeVector gloMomBeam = geomMan.Local2GlobalDir(TgtId, momentumBeam);
@@ -3901,8 +3911,8 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 	  particleGun->SetParticleEnergy((Energy_beam - spiMinus->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalVertexPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
-	  /*sigma*/    
+
+	  /*sigma*/
 	  /*
 	  particleGun->SetParticleDefinition(ssigma);
 	  G4ThreeVector gloMomSigma = geomMan.Local2GlobalDir(TgtId, momentumSigma);
@@ -3919,24 +3929,24 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 	  particleGun->SetParticleEnergy((Energy_decayN - decayNucl->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalDecayPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
-	  /*scat pi*/    
+
+	  /*scat pi*/
 	  particleGun->SetParticleDefinition(decayPi);
 	  G4ThreeVector gloMomentumScatPi = geomMan.Local2GlobalDir(TgtId, momentumScatPi);
 	  particleGun->SetParticleMomentumDirection(gloMomentumScatPi);
 	  particleGun->SetParticleEnergy((Energy_scatPi - decayPi->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalPiNScatPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
-	  /*scatt proton*/    
+
+	  /*scatt proton*/
 	  particleGun->SetParticleDefinition(scatParticle);
 	  G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
 	  particleGun->SetParticleMomentumDirection(gloMomScatPart);
 	  particleGun->SetParticleEnergy((Energy_scatPart - scatParticle->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalPiNScatPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
-	  
+
+
 	  anaMan_->SetPrimaryVertex(localVertexPos);
 	  anaMan_->SetHypBeamMomentum(momentumLambda);
 	  anaMan_->SetScatMesonMomentum(momentumK);
@@ -3948,35 +3958,35 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 	  anaMan_->SetPiNScatPos(localPiNScatPos);
 	  anaMan_->SetDecayFlag(decayMode);
 	  anaMan_->SetPiNScatFlag();
-	  anaMan_->SetPiNScatTarget(flagTgtType3);	
+	  anaMan_->SetPiNScatTarget(flagTgtType3);
 	  anaMan_->SetScatProtonMomentum(momentumScatPart);
 	  anaMan_->SetFlightLengthInTarget(dxInH, 0);
 	  //anaMan_->SetDecayPiMomentum(momentumDecayPi);
 	  anaMan_->SetDecayPiMomentum(momentumScatPi);
 	  anaMan_->SetDecayNucleonMomentum(momentumDecayN);
 	  anaMan_->SetBeamMomentum(beammom);
-	  
+
 	  return;
 	}
       } else if (decayMode==0) {
 	/* n-p scatt */
 	G4double neutron_react_rate = 0.0001274; // 1/mm /* 30mb and LH2 target*/
-	
+
 	double Ekin_n[30] = {10., 20., 30., 40., 50., 60., 70., 80., 90., 100.,
 			     110., 120., 130., 140., 150., 160., 170., 180., 190., 200.,
 		   210., 220., 230., 240., 250., 260., 270., 280., 290., 300.};
-	
+
 	double np_cs_table[30] = { 951.827, 488.477, 312.839, 223.243, 170.507,
 				   136.696, 113.728,  97.449,  85.517,  76.527,
 				   69.593,  64.133,  59.756,  56.191,  53.244,
 				   50.779,  48.691,  46.905,  45.364,  44.022,
 				   42.844,  41.803,  40.876,  40.046,  39.298,
 				   38.620,  38.002,  37.436,  36.915,  36.432};
-	
+
 	double Ekin = (sqrt(momentum_decayN*momentum_decayN+m_neutron*m_neutron)
 		       -m_neutron)*1000. ;// MeV
-	
-	
+
+
 	int index_Ekin=-1;
 	double np_cs;
 	for (int i=0; i<30; i++) {
@@ -4004,36 +4014,36 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 	    }
 	  }
 	}
-	
+
 	if (index_Ekin<0 || index_Ekin>=30) {
 	  fprintf(stderr, "PrimaryGeneratorAction::GeneratePiKSigmaScat2 invalid index_Ekin : %d", index_Ekin);
 	  exit(-1);
 	}
 	neutron_react_rate *= np_cs/30.;
-	
+
 	G4double dy = 0.5*mm; //mm
 	G4double totaly=0.0;  //mm
-	
+
 	G4ThreeVector localNeutronPos = localDecayPos;
 	int flagTgtType2 = -1;
-	
+
 	int nIte=0;
 	while (1) {
 	  flagTgtType2 = -1;
 	  totaly += dy;
 	  localNeutronPos += momentumDecayN*dy/momentumDecayN.mag();
-	  
+
 	  flagNeutronScattering=false;
-	  
+
 	  flagTgtType2 = getTargetFlag(localNeutronPos);
-	  
+
 	  if (flagTgtType2 == 0 || flagTgtType2 == 1) {
 	    flagNeutronScattering  = scatteringCheck(neutron_react_rate, dy/mm);
 	  }
-	  
+
 	  if (flagNeutronScattering)
 	    break;
-	  
+
 	  nIte++;
 	  if (nIte>1000)
 	    break;
@@ -4052,24 +4062,24 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 	  } else {
 	    return;
 	  }
-	  //std::cout << scatParticle->GetPDGMass()/GeV << std::endl; 
+	  //std::cout << scatParticle->GetPDGMass()/GeV << std::endl;
 	  Kinema3Resonance NNScat;
-	  NNScat = Kinema3Resonance(decayNucl->GetPDGMass()/GeV, 
+	  NNScat = Kinema3Resonance(decayNucl->GetPDGMass()/GeV,
 				    scatParticle->GetPDGMass()/GeV,
 				    0.0 , decayNucl->GetPDGMass()/GeV,
 				    scatParticle->GetPDGMass()/GeV,
 				    decayNucl->GetPDGMass()/GeV,
 				    0.0, momentum_decayN, 0.0, scatDistFlag);
-	  
+
 	  /* scattered Necleon */
 	  G4double Energy_scatN = NNScat.GetEnergy(4);
 	  //G4double momentum_scatN = NNScat.GetMomentum(4);
 	  NNScat.GetMomentum(4,mom);
 	  G4ThreeVector momentumScatN( mom[1], mom[2], mom[0]);
-	  
+
 	  momentumScatN.rotateY(ThetaDecayNatBeamFrame*deg);
 	  momentumScatN.rotateZ(PhiDecayNatBeamFrame*deg);
-	  
+
 	  /* scattered Proton or Deuteron*/
 	  G4double Energy_scatPart = NNScat.GetEnergy(5);
 	  //G4double momentum_scatPart = NNScat.GetMomentum(5);
@@ -4077,36 +4087,36 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 	  G4ThreeVector momentumScatPart(mom[1], mom[2], mom[0]);
 	  momentumScatPart.rotateY(ThetaDecayNatBeamFrame*deg);
 	  momentumScatPart.rotateZ(PhiDecayNatBeamFrame*deg);
-	  
+
 	  /*
-	    std::cout << "DecayN = ( " << momentumDecayN.x() << ", " 
+	    std::cout << "DecayN = ( " << momentumDecayN.x() << ", "
 	    << momentumDecayN.y() << ", " << momentumDecayN.z()
 	    << ")" << std::endl;
-	    
-	    std::cout << "ScatN = ( " << momentumScatN.x() << ", " 
+
+	    std::cout << "ScatN = ( " << momentumScatN.x() << ", "
 	    << momentumScatN.y() << ", " << momentumScatN.z()
 	    << ")" << std::endl;
-	    
-	    std::cout << "ScatPart = ( " << momentumScatPart.x() << ", " 
+
+	    std::cout << "ScatPart = ( " << momentumScatPart.x() << ", "
 	    << momentumScatPart.y() << ", " << momentumScatPart.z()
 	    << ")" << std::endl;
-	    
-	    std::cout << "Delta = ( " 
+
+	    std::cout << "Delta = ( "
 	    << momentumDecayN.x()-momentumScatN.x()-momentumScatPart.x()
-	    << ", " 
+	    << ", "
 	    << momentumDecayN.y()-momentumScatN.y()-momentumScatPart.y()
-	    << ", " 
+	    << ", "
 	    << momentumDecayN.z()-momentumScatN.z()-momentumScatPart.z()
 	    << ")" << std::endl;
 	  */
-	  
+
 	  particleGun->SetParticleDefinition(kaon0);
 	  G4ThreeVector gloMomK = geomMan.Local2GlobalDir(TgtId, momentumK);
 	  particleGun->SetParticleMomentumDirection(gloMomK);
 	  particleGun->SetParticleEnergy((Energy_k - kaon0->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalVertexPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
+
 	  /* beam */
 	  particleGun->SetParticleDefinition(spiMinus);
 	  G4ThreeVector gloMomBeam = geomMan.Local2GlobalDir(TgtId, momentumBeam);
@@ -4114,8 +4124,8 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 	  particleGun->SetParticleEnergy((Energy_beam - spiMinus->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalVertexPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
-	  /*sigma*/    
+
+	  /*sigma*/
 	  /*
 	  particleGun->SetParticleDefinition(ssigma);
 	  G4ThreeVector gloMomSigma = geomMan.Local2GlobalDir(TgtId, momentumSigma);
@@ -4125,7 +4135,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 	  particleGun->SetParticlePosition(globalDecayPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
 	  */
-	  
+
 	  /* decay pi */
 	  particleGun->SetParticleDefinition(decayPi);
 	  G4ThreeVector gloMomDecayPi = geomMan.Local2GlobalDir(TgtId, momentumDecayPi);
@@ -4133,24 +4143,24 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 	  particleGun->SetParticleEnergy((Energy_decayPi - decayPi->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalDecayPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
-	  /*scat proton*/    
+
+	  /*scat proton*/
 	  particleGun->SetParticleDefinition(decayNucl);
 	  G4ThreeVector gloMomentumScatN = geomMan.Local2GlobalDir(TgtId, momentumScatN);
 	  particleGun->SetParticleMomentumDirection(gloMomentumScatN);
 	  particleGun->SetParticleEnergy((Energy_scatN - decayNucl->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalNNScatPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
-	  /*scatt proton*/    
+
+	  /*scatt proton*/
 	  particleGun->SetParticleDefinition(scatParticle);
 	  G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
 	  particleGun->SetParticleMomentumDirection(gloMomScatPart);
 	  particleGun->SetParticleEnergy((Energy_scatPart - scatParticle->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalNNScatPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
-	  
+
+
 	  anaMan_->SetPrimaryVertex(localVertexPos);
 	  anaMan_->SetHypBeamMomentum(momentumLambda);
 	  anaMan_->SetScatMesonMomentum(momentumK);
@@ -4162,14 +4172,14 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 	  anaMan_->SetNNScatPos(localNNScatPos);
 	  anaMan_->SetDecayFlag(decayMode);
 	  anaMan_->SetNNScatFlag();
-	  anaMan_->SetNNScatTarget(flagTgtType2);	
+	  anaMan_->SetNNScatTarget(flagTgtType2);
 	  anaMan_->SetScatProtonMomentum(momentumScatPart);
 	  anaMan_->SetFlightLengthInTarget(dxInH, 0);
 	  anaMan_->SetDecayPiMomentum(momentumDecayPi);
 	  //anaMan_->SetDecayNucleonMomentum(momentumDecayN);
 	  anaMan_->SetDecayNucleonMomentum(momentumScatN);
 	  anaMan_->SetBeamMomentum(beammom);
-	  
+
 	  return;
 	}
 
@@ -4213,10 +4223,10 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
     particleGun->SetParticlePosition(globalVertexPos);
     particleGun->GeneratePrimaryVertex(anEvent);
 
-    /*decaying lambda*/    
+    /*decaying lambda*/
     if (!flagPolarization) {
       particleGun->SetParticleDefinition(ulambda);
-      
+
       G4ThreeVector gloMomLambda = geomMan.Local2GlobalDir(TgtId, momentumLambda);
       particleGun->SetParticleMomentumDirection(gloMomLambda);
       particleGun->SetParticleEnergy((E_lambda - lambda->GetPDGMass()/GeV)*GeV);
@@ -4233,7 +4243,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 					piMinus->GetPDGMass()/GeV,
 					1.0, // Polarization
 					AsymPara_Lambda, // Asymmetry parameter
-					NormY, 
+					NormY,
 					momentumLambda,
 					localDecayPos,
 					false, // phi flag, lambda is opposite for x axis
@@ -4241,7 +4251,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 					false // charge flag
 					);
 
-      //std::cout << "ThetaLambda = " << ThetaLambda 
+      //std::cout << "ThetaLambda = " << ThetaLambda
       //<< "PhiLambda" << PhiLambda << std::endl;
       G4ThreeVector momDecayProton = LambdaDecay.GetMomentum2();
 
@@ -4288,14 +4298,14 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 
     LambdaScat = Kinema3Resonance(lambda->GetPDGMass()/GeV,
 				  scatParticle->GetPDGMass()/GeV,
-				  0.0 , 
+				  0.0 ,
 				  lambda->GetPDGMass()/GeV,
 				  scatParticle->GetPDGMass()/GeV,
 				  lambda->GetPDGMass()/GeV,
 				  0.0, p_lambda, 0.0,
 				  scatDistFlag);
-    
-    
+
+
     /* scattered lambda */
     G4double Energy_scatLambda = LambdaScat.GetEnergy(4);
     //G4double momentum_scatLambda = LambdaScat.GetMomentum(4);
@@ -4303,10 +4313,10 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
     G4ThreeVector momentumScatLambda( mom[1], mom[2], mom[0]);
     momentumScatLambda.rotateY(ThetaLambda*deg);
     momentumScatLambda.rotateZ(PhiLambda*deg);
-    
+
     double ThetaScatLambdaCM = LambdaScat.GetThetaCM(1);
     double PhiScatLambdaCM   = LambdaScat.GetPhiCM(1);
-    
+
     /*
       G4cout << "ScatLambda (" << momentumScatLambda.x() << ", "
       << momentumScatLambda.y() << ", " << momentumScatLambda.z() << ") "
@@ -4326,19 +4336,19 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
     */
     //G4cout << "ThetaPi : " << ThetaPi  << ", "
     //<< "PhiPi : " << PhiPi  << G4endl;
-    
-    
+
+
     //if (1) {
     /*
       G4cout << "Flight length = " << flength/cm << G4endl;
       G4cout << "Lambda (" << momentumLambda.x() << ", "
       << momentumLambda.y() << ", " << momentumLambda.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatLambda (" << momentumScatLambda.x() << ", "
       << momentumScatLambda.y() << ", " << momentumScatLambda.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatProton (" << momentumScatProton.x() << ", "
       << momentumScatProton.y() << ", " << momentumScatProton.z() << ") "
       << G4endl;
@@ -4376,7 +4386,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
     particleGun->SetParticlePosition(globalVertexPos);
     particleGun->GeneratePrimaryVertex(anEvent);
 
-    /*scatt lambda*/    
+    /*scatt lambda*/
     if (!flagPolarization) {
       G4ThreeVector gloMomLambda = geomMan.Local2GlobalDir(TgtId, momentumLambda);
       particleGun->SetParticleDefinition(lambda);
@@ -4405,7 +4415,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
 					false // charge flag
 					);
 
-      //std::cout << "ThetaLambda = " << ThetaLambda 
+      //std::cout << "ThetaLambda = " << ThetaLambda
       //<< "PhiLambda" << PhiLambda << std::endl;
       G4ThreeVector localDecayPos  = LambdaDecay.GetDecayPos();
       G4ThreeVector globalDecayPos = geomMan.Local2GlobalPos(TgtId, localDecayPos);
@@ -4437,7 +4447,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
       anaMan_->SetDecayNucleonMomentum(momDecayProton);
       anaMan_->SetDecayPos(localDecayPos);
     }
-    /*scatt proton*/    
+    /*scatt proton*/
     particleGun->SetParticleDefinition(scatParticle);
     G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
     particleGun->SetParticleMomentumDirection(gloMomScatPart);
@@ -4460,26 +4470,26 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
       return;
     }
     G4ParticleDefinition* scatHyperon = particleTable->FindParticle("sigma+");
-    G4ParticleDefinition* recoilNucleon = particleTable->FindParticle("neutron");      
+    G4ParticleDefinition* recoilNucleon = particleTable->FindParticle("neutron");
     int reactMode=2;
 
     if (flagSigma0P) {
       scatHyperon = particleTable->FindParticle("sigma0");
-      recoilNucleon = particleTable->FindParticle("proton");      
+      recoilNucleon = particleTable->FindParticle("proton");
       reactMode=3;
     }
 
 
     LambdaScat = Kinema3Resonance(lambda->GetPDGMass()/GeV,
 				  scatParticle->GetPDGMass()/GeV,
-				  0.0 , 
+				  0.0 ,
 				  scatHyperon->GetPDGMass()/GeV,
 				  recoilNucleon->GetPDGMass()/GeV,
 				  scatHyperon->GetPDGMass()/GeV,
 				  0.0, p_lambda, 0.0,
 				  scatDistFlag);
-    
-    
+
+
     /* scattered Hyperon */
     G4double Energy_scatHyperon = LambdaScat.GetEnergy(4);
     //G4double momentum_scatHyperon = LambdaScat.GetMomentum(4);
@@ -4487,10 +4497,10 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
     G4ThreeVector momentumScatHyperon( mom[1], mom[2], mom[0]);
     momentumScatHyperon.rotateY(ThetaLambda*deg);
     momentumScatHyperon.rotateZ(PhiLambda*deg);
-    
+
     double ThetaScatHyperonCM = LambdaScat.GetThetaCM(1);
     double PhiScatHyperonCM   = LambdaScat.GetPhiCM(1);
-    
+
     /*
       G4cout << "ScatLambda (" << momentumScatLambda.x() << ", "
       << momentumScatLambda.y() << ", " << momentumScatLambda.z() << ") "
@@ -4510,19 +4520,19 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
     */
     //G4cout << "ThetaPi : " << ThetaPi  << ", "
     //<< "PhiPi : " << PhiPi  << G4endl;
-    
-    
+
+
     //if (1) {
     /*
       G4cout << "Flight length = " << flength/cm << G4endl;
       G4cout << "Lambda (" << momentumLambda.x() << ", "
       << momentumLambda.y() << ", " << momentumLambda.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatLambda (" << momentumScatLambda.x() << ", "
       << momentumScatLambda.y() << ", " << momentumScatLambda.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatProton (" << momentumScatProton.x() << ", "
       << momentumScatProton.y() << ", " << momentumScatProton.z() << ") "
       << G4endl;
@@ -4562,7 +4572,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
     particleGun->SetParticlePosition(globalVertexPos);
     particleGun->GeneratePrimaryVertex(anEvent);
 
-    /*scatt lambda*/    
+    /*scatt lambda*/
     G4ThreeVector gloMomLambda = geomMan.Local2GlobalDir(TgtId, momentumLambda);
     particleGun->SetParticleDefinition(scatHyperon);
     G4ThreeVector gloMomScatHyperon = geomMan.Local2GlobalDir(TgtId, momentumScatHyperon);
@@ -4571,7 +4581,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusP_K0Lambda_Scat(G4Event* anEvent)
     particleGun->SetParticlePosition(globalScatPos);
     particleGun->GeneratePrimaryVertex(anEvent);
 
-    /*scatt proton*/    
+    /*scatt proton*/
     particleGun->SetParticleDefinition(recoilNucleon);
     G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
     particleGun->SetParticleMomentumDirection(gloMomScatPart);
@@ -4619,8 +4629,8 @@ void CFTPrimaryGeneratorAction::GenerateVPFourBodyDecay(G4Event* anEvent)
     primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
   /*
@@ -4633,7 +4643,7 @@ void CFTPrimaryGeneratorAction::GenerateVPFourBodyDecay(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   if (1) {
     particleGun->SetParticleDefinition(VP_PiMinusP);
     G4ThreeVector localMomVP(0.,0.,1.);
@@ -4681,7 +4691,7 @@ void CFTPrimaryGeneratorAction::GenerateVPFourBodyDecay_Scat(G4Event* anEvent)
 
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
-  
+
   if (GenerateNum%2 == 0) {
     anaMan_->BeginOfPrimaryAction();
     anaMan_->SetPrimaryFlag(true);
@@ -4694,13 +4704,13 @@ void CFTPrimaryGeneratorAction::GenerateVPFourBodyDecay_Scat(G4Event* anEvent)
     // VP_PiMinusP Gun Settings
     double Energy_VP = sqrt(pow(VPMass, 2.0) + pow(beammom, 2.0));
     G4ThreeVector momentumVP(0., 0., beammom);
-    
+
     //G4ParticleDefinition* piMinus = particleTable->FindParticle("spi-");
 
     /* pi- beam */
     //G4double Energy_beam = sqrt(pow(piMinus->GetPDGMass()/GeV, 2.0) + pow(beammom, 2.0));
     G4ThreeVector momentumBeam(0., 0., -beammom);
-    
+
     //G4double primary_vertex_x, primary_vertex_y, primary_vertex_z;
     G4ThreeVector localVertexPos(0., 0., 0.);
     //Rotate to global coordinate
@@ -4714,7 +4724,7 @@ void CFTPrimaryGeneratorAction::GenerateVPFourBodyDecay_Scat(G4Event* anEvent)
       particleGun->SetParticleEnergy((Energy_VP - VPMass)*GeV);
       particleGun->SetParticlePosition(globalVertexPos);
       particleGun->GeneratePrimaryVertex(anEvent);
-      
+
       anaMan_->SetPrimaryVertex(localVertexPos);
       anaMan_->SetBeamMomentum(beammom);
       /*
@@ -4728,7 +4738,7 @@ void CFTPrimaryGeneratorAction::GenerateVPFourBodyDecay_Scat(G4Event* anEvent)
       anaMan_->SetBeamMomentum(beammom);
       //anaMan_->SetDecayPiMomentum(momentumPiZero);
       //anaMan_->SetDecayNucleonMomentum(momentumProton);
-      
+
     }
   } else {
     anaMan_->SetPrimaryFlag(false);
@@ -4741,8 +4751,8 @@ void CFTPrimaryGeneratorAction::GenerateVPFourBodyDecay_Scat(G4Event* anEvent)
       primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
       primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
       primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-      primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						   primary_vertex_y, 
+      primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						   primary_vertex_y,
 						   primary_vertex_z));
     } while (primaryTgtType != 0 && primaryTgtType != 1);
 
@@ -4768,7 +4778,7 @@ void CFTPrimaryGeneratorAction::GenerateVPFourBodyDecay_Scat(G4Event* anEvent)
       else if (pid == 4)
 	Particle = particleTable->FindParticle("neutron");
       else {
-	std::cerr << "CFTPrimaryGeneratorAction::GenerateVPFourBodyDecay_Scat No such particle type " 
+	std::cerr << "CFTPrimaryGeneratorAction::GenerateVPFourBodyDecay_Scat No such particle type "
 		  << pid << std::endl;
 	return;
       }
@@ -4819,7 +4829,7 @@ void CFTPrimaryGeneratorAction::GenerateVPFourBodyDecay_Scat(G4Event* anEvent)
     particleGun->SetParticleEnergy((Energy_beam - piMinus->GetPDGMass()/GeV)*GeV);
     particleGun->SetParticlePosition(globalVertexPos);
     particleGun->GeneratePrimaryVertex(anEvent);
-    
+
     anaMan_->SetPrimaryVertex(localVertexPos);
     anaMan_->SetBeamMomentum(beammom);
     /*
@@ -4860,7 +4870,7 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi(G4Event* anEvent)
   Kinema3Resonance Xi;
   int DistFlag=3; // 1.3GeV/c (pi-, K+)
 
-  Xi = Kinema3Resonance(kaonMinus->GetPDGMass()/GeV, 
+  Xi = Kinema3Resonance(kaonMinus->GetPDGMass()/GeV,
 			proton->GetPDGMass()/GeV,
 			0.0 , mass_xi,
 			kaonPlus->GetPDGMass()/GeV,
@@ -4888,7 +4898,7 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi(G4Event* anEvent)
   double Energy_beam = sqrt(pow(kaonMinus->GetPDGMass()/GeV, 2.0) + pow(beammom, 2.0));
   G4ThreeVector momentumBeam(0., 0., -beammom);
 
-  if (!(ThetaK>0.&&ThetaK<50.)) 
+  if (!(ThetaK>0.&&ThetaK<50.))
     return;
 
 
@@ -4900,8 +4910,8 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi(G4Event* anEvent)
     primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
   /*
@@ -4914,7 +4924,7 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   if (1) {
     particleGun->SetParticleDefinition(kaonPlus);
     G4ThreeVector gloMomKPlus = geomMan.Local2GlobalDir(TgtId, momentumKaonPlus);
@@ -4942,7 +4952,7 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi(G4Event* anEvent)
     anaMan_->SetBeamMomentum(beammom);
     /*
     PrimaryInfo pInfo;
-    pInfo.p     = momentum_k; 
+    pInfo.p     = momentum_k;
     pInfo.theta = ThetaK;
     pInfo.phi   = PhiK;
     pInfo.x     = primary_vertex_x;
@@ -4982,7 +4992,7 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
   Kinema3Resonance Xi;
   int DistFlag=3; // 1.3GeV/c (pi-, K+)
 
-  Xi = Kinema3Resonance(kaonMinus->GetPDGMass()/GeV, 
+  Xi = Kinema3Resonance(kaonMinus->GetPDGMass()/GeV,
 			proton->GetPDGMass()/GeV,
 			0.0 , mass_xi,
 			kaonPlus->GetPDGMass()/GeV,
@@ -5010,7 +5020,7 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
   double Energy_beam = sqrt(pow(kaonMinus->GetPDGMass()/GeV, 2.0) + pow(beammom, 2.0));
   G4ThreeVector momentumBeam(0., 0., -beammom);
 
-  if (!(ThetaK>0.&&ThetaK<50.)) 
+  if (!(ThetaK>0.&&ThetaK<50.))
     return;
 
 
@@ -5022,8 +5032,8 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
     primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
   /*
@@ -5036,7 +5046,7 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
 
   /* xi-p scatt */
   //G4double flength=20.*mm;
@@ -5085,10 +5095,10 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
 
 #if 0
     std::cout << "------" << std::endl;
-    std::cout << "MomXi ( " << momentumXi.x() << ", "  
+    std::cout << "MomXi ( " << momentumXi.x() << ", "
 	      << momentumXi.y() << ", " << momentumXi.z()
 	      << ")" << std::endl;
-    std::cout << "LocalPos ( " << localXiPos.x() << ", "  
+    std::cout << "LocalPos ( " << localXiPos.x() << ", "
 	      << localXiPos.y() << ", " << localXiPos.z()
 	      << ")" << std::endl;
     {
@@ -5119,8 +5129,8 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
       E_xi = sqrt(p_xi*p_xi + m_xi*m_xi);
     }
     /*
-    G4cout << "Length : " << totalx << ", p = " << p_xi*1000. 
-	   << " MeV/c, Ekin = "	   << (E_xi-m_xi)*1000. 
+    G4cout << "Length : " << totalx << ", p = " << p_xi*1000.
+	   << " MeV/c, Ekin = "	   << (E_xi-m_xi)*1000.
 	   << " MeV" << G4endl;
     */
     if (fabs(p_xi)<0.000001) {
@@ -5144,9 +5154,9 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
 
     if (1) {
       Kinema3Resonance XiDecay;
-      XiDecay = Kinema3Resonance(xi->GetPDGMass()/GeV, 
+      XiDecay = Kinema3Resonance(xi->GetPDGMass()/GeV,
 				 0.0,
-				 0.0 , 
+				 0.0 ,
 				 lambda->GetPDGMass()/GeV,
 				 piMinus->GetPDGMass()/GeV,
 				 lambda->GetPDGMass()/GeV,
@@ -5160,7 +5170,7 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
       G4ThreeVector momentumDecayL(mom[1], mom[2], mom[0]);
       //double ThetaDecayL = XiDecay.GetTheta(4);
       //double PhiDecayL = XiDecay.GetPhi(4);
-      
+
       /* pi- */
       double Energy_decayPi = XiDecay.GetEnergy(5);
       //double momentum_decayPi = XiDecay.GetMomentum(5);
@@ -5168,7 +5178,7 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
       G4ThreeVector momentumDecayPi( mom[1], mom[2], mom[0]);
       //double ThetaDecayPi = XiDecay.GetTheta(5);
       //double PhiDecayPi = XiDecay.GetPhi(5);
-      
+
       // Lambda momentum at beam frame
       momentumDecayL.rotateY(ThetaXi*deg);
       momentumDecayL.rotateZ(PhiXi*deg);
@@ -5178,32 +5188,32 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
       momentumDecayPi.rotateZ(PhiXi*deg);
 
       /*
-      std::cout << "XiMom = ( " << momentumXi.x() << ", " 
+      std::cout << "XiMom = ( " << momentumXi.x() << ", "
 		<< momentumXi.y() << ", " << momentumXi.z()
 		<< ")" << std::endl;
-      std::cout << "DecayL = ( " << momentumDecayL.x() << ", " 
+      std::cout << "DecayL = ( " << momentumDecayL.x() << ", "
 		<< momentumDecayL.y() << ", " << momentumDecayL.z()
 		<< ")" << std::endl;
-      std::cout << "DecayPi = ( " << momentumDecayPi.x() << ", " 
+      std::cout << "DecayPi = ( " << momentumDecayPi.x() << ", "
 		<< momentumDecayPi.y() << ", " << momentumDecayPi.z()
 		<< ")" << std::endl;
 
-      std::cout << "Delta = ( " 
+      std::cout << "Delta = ( "
 		<< momentumXi.x()-momentumDecayL.x()-momentumDecayPi.x()
-		<< ", " 
-		<< momentumXi.y()-momentumDecayL.y()-momentumDecayPi.y() 
-		<< ", " 
+		<< ", "
+		<< momentumXi.y()-momentumDecayL.y()-momentumDecayPi.y()
+		<< ", "
 		<< momentumXi.z()-momentumDecayL.z()-momentumDecayPi.z()
 		<< ")" << std::endl;
       */
-      double ThetaDecayLatBeamFrame, PhiDecayLatBeamFrame; 
-      calcThetaPhi(momentumDecayL, 
-		   &ThetaDecayLatBeamFrame, 
+      double ThetaDecayLatBeamFrame, PhiDecayLatBeamFrame;
+      calcThetaPhi(momentumDecayL,
+		   &ThetaDecayLatBeamFrame,
 		   &PhiDecayLatBeamFrame);
 
-      double ThetaDecayPiatBeamFrame, PhiDecayPiatBeamFrame; 
-      calcThetaPhi(momentumDecayPi, 
-		   &ThetaDecayPiatBeamFrame, 
+      double ThetaDecayPiatBeamFrame, PhiDecayPiatBeamFrame;
+      calcThetaPhi(momentumDecayPi,
+		   &ThetaDecayPiatBeamFrame,
 		   &PhiDecayPiatBeamFrame);
       /*
       std::cout << "ThetaDecayLatBeamFrame: " << ThetaDecayLatBeamFrame
@@ -5220,7 +5230,7 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
 	return;
 
 
-      /* lambda p scat */ 
+      /* lambda p scat */
 
       bool flagLambdaPScat = LambdaP_Scattering(anEvent, momentumDecayL, localDecayPos);
       if (flagLambdaPScat) {
@@ -5231,7 +5241,7 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
 	particleGun->SetParticleEnergy((Energy_k - kaonPlus->GetPDGMass()/GeV)*GeV);
 	particleGun->SetParticlePosition(globalVertexPos);
 	particleGun->GeneratePrimaryVertex(anEvent);
-	
+
 	/* beam */
 	particleGun->SetParticleDefinition(kaonMinus);
 	G4ThreeVector gloMomBeam = geomMan.Local2GlobalDir(TgtId, momentumBeam);
@@ -5239,7 +5249,7 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
 	particleGun->SetParticleEnergy((Energy_beam - kaonMinus->GetPDGMass()/GeV)*GeV);
 	particleGun->SetParticlePosition(globalVertexPos);
 	particleGun->GeneratePrimaryVertex(anEvent);
-	
+
 	// generate pi- from X- decay
 	/* decay pi- */
 	particleGun->SetParticleDefinition(piMinus);
@@ -5273,7 +5283,7 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
 	particleGun->SetParticleEnergy((Energy_k - kaonPlus->GetPDGMass()/GeV)*GeV);
 	particleGun->SetParticlePosition(globalVertexPos);
 	particleGun->GeneratePrimaryVertex(anEvent);
-	
+
 	/* beam */
 	particleGun->SetParticleDefinition(kaonMinus);
 	G4ThreeVector gloMomBeam = geomMan.Local2GlobalDir(TgtId, momentumBeam);
@@ -5303,7 +5313,7 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
 
 	return;
       }
-      
+
 
     }
 
@@ -5332,7 +5342,7 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
     particleGun->SetParticlePosition(globalVertexPos);
     particleGun->GeneratePrimaryVertex(anEvent);
 
-    /*decaying xi*/    
+    /*decaying xi*/
     particleGun->SetParticleDefinition(uxi);
     G4ThreeVector gloMomXi = geomMan.Local2GlobalDir(TgtId, momentumXi);
     particleGun->SetParticleMomentumDirection(gloMomXi);
@@ -5372,14 +5382,14 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
 
     XiPScat = Kinema3Resonance(xi->GetPDGMass()/GeV,
 			       scatParticle->GetPDGMass()/GeV,
-			       0.0 , 
+			       0.0 ,
 			       xi->GetPDGMass()/GeV,
 			       scatParticle->GetPDGMass()/GeV,
-			       xi->GetPDGMass()/GeV, 0.0, 
+			       xi->GetPDGMass()/GeV, 0.0,
 			       p_xi, 0.0,
 			       scatDistFlag);
-    
-    
+
+
     /* scattered Xi */
     G4double Energy_scatXi = XiPScat.GetEnergy(4);
     //G4double momentum_scatXi = XiPScat.GetMomentum(4);
@@ -5387,10 +5397,10 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
     G4ThreeVector momentumScatXi( mom[1], mom[2], mom[0]);
     momentumScatXi.rotateY(ThetaXi*deg);
     momentumScatXi.rotateZ(PhiXi*deg);
-    
+
     double ThetaScatXiCM = XiPScat.GetThetaCM(1);
     double PhiScatXiCM = XiPScat.GetPhiCM(1);
-    
+
     /*
       G4cout << "ScatXi (" << momentumScatXi.x() << ", "
       << momentumScatXi.y() << ", " << momentumScatXi.z() << ") "
@@ -5410,19 +5420,19 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
     */
     //G4cout << "ThetaPi : " << ThetaPi  << ", "
     //<< "PhiPi : " << PhiPi  << G4endl;
-    
-    
+
+
     //if (1) {
     /*
       G4cout << "Flight length = " << flength/cm << G4endl;
       G4cout << "Sigma (" << momentumSigma.x() << ", "
       << momentumSigma.y() << ", " << momentumSigma.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatSigma (" << momentumScatSigma.x() << ", "
       << momentumScatSigma.y() << ", " << momentumScatSigma.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatProton (" << momentumScatProton.x() << ", "
       << momentumScatProton.y() << ", " << momentumScatProton.z() << ") "
       << G4endl;
@@ -5461,7 +5471,7 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
     particleGun->SetParticlePosition(globalVertexPos);
     particleGun->GeneratePrimaryVertex(anEvent);
 
-    /*scatt xi*/    
+    /*scatt xi*/
     particleGun->SetParticleDefinition(xi);
     G4ThreeVector gloMomScatXi = geomMan.Local2GlobalDir(TgtId, momentumScatXi);
     particleGun->SetParticleMomentumDirection(gloMomScatXi);
@@ -5469,7 +5479,7 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
     particleGun->SetParticlePosition(globalScatPos);
     particleGun->GeneratePrimaryVertex(anEvent);
 
-    /*scatt proton*/    
+    /*scatt proton*/
     particleGun->SetParticleDefinition(scatParticle);
     G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
     particleGun->SetParticleMomentumDirection(gloMomScatPart);
@@ -5491,7 +5501,7 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
       hyperon = particleTable->FindParticle("lambda");
       scatParticle = particleTable->FindParticle("lambda");
       reactMode=2;
-    } else { 
+    } else {
       hyperon = particleTable->FindParticle("xi0");
       scatParticle = particleTable->FindParticle("neutron");
       reactMode=3;
@@ -5500,15 +5510,15 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
 
     XiPScat = Kinema3Resonance(xi->GetPDGMass()/GeV,
 				 mass_proton,
-				 0.0 , 
+				 0.0 ,
 				 hyperon->GetPDGMass()/GeV,
 				 scatParticle->GetPDGMass()/GeV,
-				 hyperon->GetPDGMass()/GeV, 
-				 0.0, 
+				 hyperon->GetPDGMass()/GeV,
+				 0.0,
 				 p_xi, 0.0,
 				 scatDistFlag);
 
-    
+
     /* scattered Hyperon */
     G4double Energy_scatXi = XiPScat.GetEnergy(4);
     //G4double momentum_scatXi = XiPScat.GetMomentum(4);
@@ -5516,10 +5526,10 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
     G4ThreeVector momentumScatXi( mom[1], mom[2], mom[0]);
     momentumScatXi.rotateY(ThetaXi*deg);
     momentumScatXi.rotateZ(PhiXi*deg);
-    
+
     double ThetaScatXiCM = XiPScat.GetThetaCM(1);
     double PhiScatXiCM = XiPScat.GetPhiCM(1);
-    
+
     /*
       G4cout << "ScatXi (" << momentumScatXi.x() << ", "
       << momentumScatXi.y() << ", " << momentumScatXi.z() << ") "
@@ -5540,19 +5550,19 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
     */
     //G4cout << "ThetaPi : " << ThetaPi  << ", "
     //<< "PhiPi : " << PhiPi  << G4endl;
-    
-    
+
+
     //if (1) {
     /*
       G4cout << "Flight length = " << flength/cm << G4endl;
       G4cout << "Xi (" << momentumXi.x() << ", "
       << momentumXi.y() << ", " << momentumXi.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatXi (" << momentumScatXi.x() << ", "
       << momentumScatXi.y() << ", " << momentumScatXi.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatProton (" << momentumScatPart.x() << ", "
       << momentumScatPart.y() << ", " << momentumScatPart.z() << ") "
       << G4endl;
@@ -5590,7 +5600,7 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
     particleGun->SetParticlePosition(globalVertexPos);
     particleGun->GeneratePrimaryVertex(anEvent);
 
-    /*scatt hyperon*/    
+    /*scatt hyperon*/
     particleGun->SetParticleDefinition(hyperon);
     G4ThreeVector gloMomScatXi = geomMan.Local2GlobalDir(TgtId, momentumScatXi);
     particleGun->SetParticleMomentumDirection(gloMomScatXi);
@@ -5598,7 +5608,7 @@ void CFTPrimaryGeneratorAction::GenerateKMinusP_KPlusXi_Scat(G4Event* anEvent)
     particleGun->SetParticlePosition(globalScatPos);
     particleGun->GeneratePrimaryVertex(anEvent);
 
-    /*scatt proton*/    
+    /*scatt proton*/
     particleGun->SetParticleDefinition(scatParticle);
     G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
     particleGun->SetParticleMomentumDirection(gloMomScatPart);
@@ -5629,9 +5639,9 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda(G4Event* anEvent)
   int DistFlag=9; // E dep gamma p --> K+ Lambda
   // int DistFlag=0; // Random K+ direction
 
-  Sigma = Kinema3Resonance(gamma->GetPDGMass()/GeV, 
+  Sigma = Kinema3Resonance(gamma->GetPDGMass()/GeV,
 			   proton->GetPDGMass()/GeV,
-			   0.0 , 
+			   0.0 ,
 			   lambda->GetPDGMass()/GeV,
 			   kaon->GetPDGMass()/GeV,
 			   lambda->GetPDGMass()/GeV,
@@ -5657,7 +5667,7 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda(G4Event* anEvent)
   G4ThreeVector momentumBeam(0., 0., -beammom);
 
 
-  // if (!(ThetaK>0.&&ThetaK<25.)) 
+  // if (!(ThetaK>0.&&ThetaK<25.))
   //   return;
 
   G4double primary_vertex_x, primary_vertex_y, primary_vertex_z;
@@ -5666,12 +5676,12 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda(G4Event* anEvent)
   // This is continued untill the vertex position is LH2
   do {
     //primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
-    primary_vertex_x = 0.*mm;    
+    primary_vertex_x = 0.*mm;
     //primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
-    primary_vertex_y = 0.*mm;        
+    primary_vertex_y = 0.*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
   /*
@@ -5684,7 +5694,7 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   if (1) {
     particleGun->SetParticleDefinition(kaon);
     G4ThreeVector gloMomK = geomMan.Local2GlobalDir(TgtId, momentumK);
@@ -5694,7 +5704,7 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda(G4Event* anEvent)
     particleGun->GeneratePrimaryVertex(anEvent);
 
 
-    G4bool flagPolarization = false; 
+    G4bool flagPolarization = false;
 
     if (!flagPolarization) {
       particleGun->SetParticleDefinition(lambda);
@@ -5705,7 +5715,7 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda(G4Event* anEvent)
       particleGun->GeneratePrimaryVertex(anEvent);
     } else {
       G4ParticleDefinition* piMinus = particleTable->FindParticle("pi-");
-      
+
       G4ThreeVector NormZ = momentumLambda*(1/momentumLambda.mag());
       G4ThreeVector NormY = NormZ.cross(momentumK);
       NormY *= (1./NormY.mag());
@@ -5717,7 +5727,7 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda(G4Event* anEvent)
 					//1.0, // Polarization
 					0.0, // Polarization
 					AsymPara_Lambda, // Asymmetry parameter
-					NormY, 
+					NormY,
 					momentumLambda,
 					localVertexPos,
 					false, // phi flag, lambda is opposite for x axis
@@ -5725,7 +5735,7 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda(G4Event* anEvent)
 					false // charge flag
 					);
 
-      //std::cout << "ThetaLambda = " << ThetaLambda 
+      //std::cout << "ThetaLambda = " << ThetaLambda
       //<< "PhiLambda" << PhiLambda << std::endl;
       G4ThreeVector localDecayPos  = LambdaDecay.GetDecayPos();
       G4ThreeVector globalDecayPos = geomMan.Local2GlobalPos(TgtId, localDecayPos);
@@ -5782,6 +5792,7 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda(G4Event* anEvent)
 
 void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent)
 {
+  std::cout << "GenerateGammaP_KPlusLambda_Scat" << std::endl;
   double mom[3];
 
   //G4bool flagPolarization = true;
@@ -5799,9 +5810,9 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
   int DistFlag=9; // E dep gamma p --> K+ Lambda
 
   Kinema3Resonance Sigma =
-    Kinema3Resonance(gamma->GetPDGMass()/GeV, 
+    Kinema3Resonance(gamma->GetPDGMass()/GeV,
 		     proton->GetPDGMass()/GeV,
-		     0.0 , 
+		     0.0 ,
 		     lambda->GetPDGMass()/GeV,
 		     kaonPlus->GetPDGMass()/GeV,
 		     lambda->GetPDGMass()/GeV,
@@ -5829,9 +5840,10 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
   double Energy_beam = sqrt(pow(gamma->GetPDGMass()/GeV, 2.0) + pow(beammom, 2.0));
   G4ThreeVector momentumBeam(0., 0., -beammom);
 
-  if (!(ThetaK>0.&&ThetaK<25.)) 
+  if (!(ThetaK>0.&&ThetaK<25.)){
+    std::cout << __LINE__ << std::endl;
     return;
-
+  }
 
   G4double primary_vertex_x, primary_vertex_y, primary_vertex_z;
   G4int primaryTgtType = -1;
@@ -5841,8 +5853,8 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
     primary_vertex_x = 0.*mm;
     primary_vertex_y = 0.*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
 
@@ -5851,7 +5863,7 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
 
   /* Lambda p scatt */
   //G4double flength=20.*mm;
@@ -5867,8 +5879,8 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
   //G4double react_rate_sigmaPn = 0.01274; // 1/mm /* temporary */
   //G4double react_rate_sigma0p = 0.01274; // 1/mm /* temporary */
 
-  G4double pth_sigmaPn = 0.6345; 
-  G4double pth_sigma0p = 0.6435; 
+  G4double pth_sigmaPn = 0.6345;
+  G4double pth_sigma0p = 0.6435;
 
   G4double dx = 0.1*mm; //mm
   G4double totalx=0.0;  //mm
@@ -5893,17 +5905,17 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
 
 #if 0
     std::cout << "------" << std::endl;
-    std::cout << "MomLambda ( " << momentumLambda.x() << ", "  
+    std::cout << "MomLambda ( " << momentumLambda.x() << ", "
 	      << momentumLambda.y() << ", " << momentumLambda.z()
 	      << ")" << std::endl;
-    std::cout << "LocalPos ( " << localLambdaPos.x() << ", "  
+    std::cout << "LocalPos ( " << localLambdaPos.x() << ", "
 	      << localLambdaPos.y() << ", " << localLambdaPos.z()
 	      << ")" << std::endl;
     {
       double theta1, phi1;
       calcThetaPhi(momentumLambda, &theta1, &phi1);
-      std::cout << "Theta " << ThetaSig << "--> "  << theta1
-		<< ", Phi " << PhiSig << "--> "  << phi1
+      std::cout << "Theta " << ThetaLambda << "--> "  << theta1
+		<< ", Phi " << PhiLambda << "--> "  << phi1
 		<<   std::endl;
     }
 #endif
@@ -5927,11 +5939,11 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
       if (p_lambda > pth_sigma0p)
 	flagSigma0P  = scatteringCheck(react_rate_sigma0p, dx/mm);
     }
-    /*
-    G4cout << "Length : " << totalx << ", p = " << p_xi*1000. 
-	   << " MeV/c, Ekin = "	   << (E_xi-m_xi)*1000. 
-	   << " MeV" << G4endl;
-    */
+
+    // G4cout << "Length : " << totalx << ", p = " << p_xi*1000.
+    // 	   << " MeV/c, Ekin = "	   << (E_xi-m_xi)*1000.
+    // 	   << " MeV" << G4endl;
+
     if (fabs(p_lambda)<0.000001) {
       //return ; // temporary
       flagDecay = true;
@@ -5940,8 +5952,10 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
       break;
 
     nIteration++;
-    if (nIteration>5000)
+    if (nIteration>5000){
+      std::cout << __LINE__ << std::endl;
       return;
+    }
   }
 
   momentumLambda *= p_lambda/momentumLambda.mag();
@@ -5987,7 +6001,7 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
       G4ThreeVector momentumDecayN(mom[1], mom[2], mom[0]);
       //double ThetaDecayN = LambdaDecay.GetTheta(4);
       //double PhiDecayN = LambdaDecay.GetPhi(4);
-    
+
       /* pi */
       double Energy_decayPi = LambdaDecay.GetEnergy(5);
       //double momentum_decayPi = LambdaDecay.GetMomentum(5);
@@ -5996,15 +6010,15 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
       //double ThetaDecayPi = LambdaDecay.GetTheta(5);
       //double PhiDecayPi = LambdaDecay.GetPhi(5);
 
-      //double ThetaLambda=0, PhiLambda=0; 
-      //calcThetaPhi(momentumLambda, 
-      //&ThetaLambda, 
+      //double ThetaLambda=0, PhiLambda=0;
+      //calcThetaPhi(momentumLambda,
+      //&ThetaLambda,
       //&PhiLambda);
-      
+
       // Neucleon momentum at beam frame
       momentumDecayN.rotateY(ThetaLambda*deg);
       momentumDecayN.rotateZ(PhiLambda*deg);
-    
+
       // pi momentum at beam frame
       momentumDecayPi.rotateY(ThetaLambda*deg);
       momentumDecayPi.rotateZ(PhiLambda*deg);
@@ -6016,57 +6030,57 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
       if (decayMode==0) {
 	// pi0 n
 	flagNpScattering = NeutronP_Scattering(anEvent, momentumDecayN, localDecayPos);
-      
+
 	if (flagNpScattering) {
 	  // generate decay pi0
-	
+
 	  particleGun->SetParticleDefinition(decayPi);
 	  G4ThreeVector gloMomDecayPi = geomMan.Local2GlobalDir(TgtId, momentumDecayPi);
 	  particleGun->SetParticleMomentumDirection(gloMomDecayPi);
 	  particleGun->SetParticleEnergy((Energy_decayPi - decayPi->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalDecayPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	
+
 	  anaMan_->SetDecayPos(localDecayPos);
 	  anaMan_->SetDecayPiMomentum(momentumDecayPi);
 	  anaMan_->SetDecayNucleonMomentum(momentumDecayN);
-	
+
 	  //return;
 	}
       } else if (decayMode==1) {
-      
+
 	flagPpScattering = ProtonP_Scattering(anEvent, momentumDecayN, localDecayPos);
 	flagPipScattering = PiMinusP_Scattering(anEvent, momentumDecayPi, localDecayPos);
 	if (flagPpScattering) {
 	  // generate decay pi-
-	
+
 	  particleGun->SetParticleDefinition(decayPi);
 	  G4ThreeVector gloMomDecayPi = geomMan.Local2GlobalDir(TgtId, momentumDecayPi);
 	  particleGun->SetParticleMomentumDirection(gloMomDecayPi);
 	  particleGun->SetParticleEnergy((Energy_decayPi - decayPi->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalDecayPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
+
 	  anaMan_->SetDecayPos(localDecayPos);
 	  anaMan_->SetDecayPiMomentum(momentumDecayPi);
 	  anaMan_->SetDecayNucleonMomentum(momentumDecayN);
-	  
+
 	  //return;
 	} else if (flagPipScattering) {
 	  // generate decay n
-	
+
 	  particleGun->SetParticleDefinition(decayNucl);
 	  G4ThreeVector gloMomDecayN = geomMan.Local2GlobalDir(TgtId, momentumDecayN);
 	  particleGun->SetParticleMomentumDirection(gloMomDecayN);
 	  particleGun->SetParticleEnergy((Energy_decayN - decayNucl->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalDecayPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
+
 	  anaMan_->SetDecayPos(localDecayPos);
 	  anaMan_->SetDecayNucleonMomentum(momentumDecayN);
-	  
+
 	  //return;
-	
+
 	}
       }
 
@@ -6077,7 +6091,7 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
 	particleGun->SetParticleEnergy((Energy_k - kaonPlus->GetPDGMass()/GeV)*GeV);
 	particleGun->SetParticlePosition(globalVertexPos);
 	particleGun->GeneratePrimaryVertex(anEvent);
-	
+
 	/* beam */
 	particleGun->SetParticleDefinition(gamma);
 	G4ThreeVector gloMomBeam = geomMan.Local2GlobalDir(TgtId, momentumBeam);
@@ -6085,14 +6099,14 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
 	particleGun->SetParticleEnergy((Energy_beam - gamma->GetPDGMass()/GeV)*GeV);
 	particleGun->SetParticlePosition(globalVertexPos);
 	particleGun->GeneratePrimaryVertex(anEvent);
-	
+
 	anaMan_->SetPrimaryVertex(localVertexPos);
 
 	//anaMan_->SetHypBeamMomentum(momentumLambda);
 	//anaMan_->SetScatMesonMomentum(momentumK);
 	anaMan_->SetHypBeamMomentum(geomMan.Local2GlobalDir(TgtId, momentumLambda));
         anaMan_->SetScatMesonMomentum(geomMan.Local2GlobalDir(TgtId, momentumK));
-	
+
 	anaMan_->SetThetaMeson(ThetaK);
 	anaMan_->SetPhiMeson(PhiK);
 	anaMan_->SetThetaMesonCM(ThetaKCM);
@@ -6102,11 +6116,12 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
 	anaMan_->SetDecayFlag();
 	anaMan_->SetFlightLengthInTarget(dxInH, 0);
 	anaMan_->SetBeamMomentum(beammom);
-	
+
+	std::cout << __LINE__ << std::endl;
 	return;
       }
 
-      
+
     }
 
     static int nDecay = 0;
@@ -6114,9 +6129,10 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
     //const int prescale = 1;
     nDecay++;
 
-    if (nDecay%prescale != 0)
+    if (nDecay%prescale != 0){
+      std::cout << __LINE__ << std::endl;
       return;
-
+    }
 
     particleGun->SetParticleDefinition(kaonPlus);
     G4ThreeVector gloMomKPlus = geomMan.Local2GlobalDir(TgtId, momentumK);
@@ -6134,12 +6150,12 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
     particleGun->GeneratePrimaryVertex(anEvent);
 
     anaMan_->SetPrimaryVertex(localVertexPos);
-    
+
     //anaMan_->SetHypBeamMomentum(momentumLambda);
     //anaMan_->SetScatMesonMomentum(momentumK);
     anaMan_->SetHypBeamMomentum(geomMan.Local2GlobalDir(TgtId, momentumLambda));
     anaMan_->SetScatMesonMomentum(geomMan.Local2GlobalDir(TgtId, momentumK));
-    
+
     anaMan_->SetThetaMeson(ThetaK);
     anaMan_->SetPhiMeson(PhiK);
     anaMan_->SetThetaMesonCM(ThetaKCM);
@@ -6149,12 +6165,12 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
     anaMan_->SetDecayFlag();
     anaMan_->SetFlightLengthInTarget(dxInH, 0);
     anaMan_->SetBeamMomentum(beammom);
-    
-    /*decaying lambda*/    
+
+    /*decaying lambda*/
     if (!flagPolarization) {
       G4ParticleDefinition*  ulambda  = particleTable->FindParticle("ulambda");
       particleGun->SetParticleDefinition(ulambda);
-      
+
       G4ThreeVector gloMomLambda = geomMan.Local2GlobalDir(TgtId, momentumLambda);
       particleGun->SetParticleMomentumDirection(gloMomLambda);
       particleGun->SetParticleEnergy((E_lambda - lambda->GetPDGMass()/GeV)*GeV);
@@ -6172,7 +6188,7 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
 					piMinus->GetPDGMass()/GeV,
 					1.0, // Polarization
 					AsymPara_Lambda, // Asymmetry parameter
-					NormY, 
+					NormY,
 					momentumLambda,
 					localDecayPos,
 					false, // phi flag, lambda is opposite for x axis
@@ -6180,11 +6196,11 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
 					false // charge flag
 					);
 
-      //std::cout << "ThetaLambda = " << ThetaLambda 
-      //<< "PhiLambda" << PhiLambda << std::endl;
+      std::cout << "ThetaLambda = " << ThetaLambda
+		<< "PhiLambda" << PhiLambda << std::endl;
       G4ThreeVector momDecayProton = LambdaDecay.GetMomentum2();
 
-      //std::cout << "momDecayProton = " <<  momDecayProton << std::endl;
+      std::cout << "momDecayProton = " <<  momDecayProton << std::endl;
 
       particleGun->SetParticleDefinition(proton);
       G4ThreeVector gloMomDecayProton = geomMan.Local2GlobalDir(TgtId, momDecayProton);
@@ -6194,9 +6210,9 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
       particleGun->GeneratePrimaryVertex(anEvent);
 
       G4ThreeVector momDecayPi     = LambdaDecay.GetMomentum3();
-      //std::cout << "momDecayPi = " <<  momDecayPi << std::endl;
-      //std::cout << "momentumLambda(gene) = " << momDecayProton+momDecayPi << std::endl;
-      //std::cout << "momentumLambda(org)  = " << momentumLambda << std::endl;
+      std::cout << "momDecayPi = " <<  momDecayPi << std::endl;
+      std::cout << "momentumLambda(gene) = " << momDecayProton+momDecayPi << std::endl;
+      std::cout << "momentumLambda(org)  = " << momentumLambda << std::endl;
 
       particleGun->SetParticleDefinition(piMinus);
       G4ThreeVector gloMomDecayPi = geomMan.Local2GlobalDir(TgtId, momDecayPi);
@@ -6211,7 +6227,7 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
     }
 
   } else if (flagScattering) {
-    //std::cout << "scat" << std::endl;
+    std::cout << "scat" << std::endl;
     G4ThreeVector localScatPos=localLambdaPos;
     G4ThreeVector globalScatPos = geomMan.Local2GlobalPos(TgtId, localScatPos);
     Kinema3Resonance LambdaScat;
@@ -6222,19 +6238,20 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
       // inside the LH2 target;
       scatParticle = particleTable->FindParticle("proton");
     } else {
+      std::cout << __LINE__ << std::endl;
       return;
     }
 
     LambdaScat = Kinema3Resonance(lambda->GetPDGMass()/GeV,
 				  scatParticle->GetPDGMass()/GeV,
-				  0.0 , 
+				  0.0 ,
 				  lambda->GetPDGMass()/GeV,
 				  scatParticle->GetPDGMass()/GeV,
 				  lambda->GetPDGMass()/GeV,
 				  0.0, p_lambda, 0.0,
 				  scatDistFlag);
-    
-    
+
+
     /* scattered lambda */
     G4double Energy_scatLambda = LambdaScat.GetEnergy(4);
     //G4double momentum_scatLambda = LambdaScat.GetMomentum(4);
@@ -6242,15 +6259,15 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
     G4ThreeVector momentumScatLambda( mom[1], mom[2], mom[0]);
     momentumScatLambda.rotateY(ThetaLambda*deg);
     momentumScatLambda.rotateZ(PhiLambda*deg);
-    
+
     G4double ThetaScatLambdaCM = LambdaScat.GetThetaCM(1);
     G4double PhiScatLambdaCM   = LambdaScat.GetPhiCM(1);
-    
-    /*
-      G4cout << "ScatLambda (" << momentumScatLambda.x() << ", "
-      << momentumScatLambda.y() << ", " << momentumScatLambda.z() << ") "
-      << G4endl;
-    */
+
+
+    G4cout << "ScatLambda (" << momentumScatLambda.x() << ", "
+	   << momentumScatLambda.y() << ", " << momentumScatLambda.z() << ") "
+	   << G4endl;
+
     /* scattered Proton or Deuteron*/
     G4double Energy_scatPart = LambdaScat.GetEnergy(5);
     //G4double momentum_scatPart = LambdaScat.GetMomentum(5);
@@ -6258,26 +6275,26 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
     G4ThreeVector momentumScatPart(mom[1], mom[2], mom[0]);
     momentumScatPart.rotateY(ThetaLambda*deg);
     momentumScatPart.rotateZ(PhiLambda*deg);
-    /*
-      G4cout << "ScatProton (" << momentumScatProton.x() << ", "
-      << momentumScatProton.y() << ", " << momentumScatProton.z() << ") "
-      << G4endl;
-    */
-    //G4cout << "ThetaPi : " << ThetaPi  << ", "
-    //<< "PhiPi : " << PhiPi  << G4endl;
-    
-    
+
+    // G4cout << "ScatProton (" << momentumScatProton.x() << ", "
+    // 	   << momentumScatProton.y() << ", " << momentumScatProton.z() << ") "
+    // 	   << G4endl;
+
+    // G4cout << "ThetaPi : " << ThetaPi  << ", "
+    // 	   << "PhiPi : " << PhiPi  << G4endl;
+
+
     //if (1) {
     /*
       G4cout << "Flight length = " << flength/cm << G4endl;
       G4cout << "Lambda (" << momentumLambda.x() << ", "
       << momentumLambda.y() << ", " << momentumLambda.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatLambda (" << momentumScatLambda.x() << ", "
       << momentumScatLambda.y() << ", " << momentumScatLambda.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatProton (" << momentumScatProton.x() << ", "
       << momentumScatProton.y() << ", " << momentumScatProton.z() << ") "
       << G4endl;
@@ -6315,7 +6332,7 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
     particleGun->SetParticlePosition(globalVertexPos);
     particleGun->GeneratePrimaryVertex(anEvent);
 
-    /*scatt lambda*/    
+    /*scatt lambda*/
     if (!flagPolarization) {
       G4ThreeVector gloMomLambda = geomMan.Local2GlobalDir(TgtId, momentumLambda);
       particleGun->SetParticleDefinition(lambda);
@@ -6344,14 +6361,14 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
 					false // charge flag
 					);
 
-      //std::cout << "ThetaLambda = " << ThetaLambda 
-      //<< "PhiLambda" << PhiLambda << std::endl;
+      std::cout << "ThetaLambda = " << ThetaLambda
+		<< "PhiLambda" << PhiLambda << std::endl;
       G4ThreeVector localDecayPos  = LambdaDecay.GetDecayPos();
       G4ThreeVector globalDecayPos = geomMan.Local2GlobalPos(TgtId, localDecayPos);
 
       G4ThreeVector momDecayProton = LambdaDecay.GetMomentum2();
 
-      //std::cout << "momDecayProton = " <<  momDecayProton << std::endl;
+      std::cout << "momDecayProton = " <<  momDecayProton << std::endl;
 
       particleGun->SetParticleDefinition(proton);
       G4ThreeVector gloMomDecayProton = geomMan.Local2GlobalDir(TgtId, momDecayProton);
@@ -6361,9 +6378,9 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
       particleGun->GeneratePrimaryVertex(anEvent);
 
       G4ThreeVector momDecayPi     = LambdaDecay.GetMomentum3();
-      //std::cout << "momDecayPi = " <<  momDecayPi << std::endl;
-      //std::cout << "momentumLambda(gene) = " << momDecayProton+momDecayPi << std::endl;
-      //std::cout << "momentumLambda(org)  = " << momentumLambda << std::endl;
+      std::cout << "momDecayPi = " <<  momDecayPi << std::endl;
+      std::cout << "momentumLambda(gene) = " << momDecayProton+momDecayPi << std::endl;
+      std::cout << "momentumLambda(org)  = " << momentumLambda << std::endl;
 
       particleGun->SetParticleDefinition(piMinus);
       G4ThreeVector gloMomDecayPi = geomMan.Local2GlobalDir(TgtId, momDecayPi);
@@ -6376,7 +6393,7 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
       anaMan_->SetDecayNucleonMomentum(momDecayProton);
       anaMan_->SetDecayPos(localDecayPos);
     }
-    /*scatt proton*/    
+    /*scatt proton*/
     particleGun->SetParticleDefinition(scatParticle);
     G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
     particleGun->SetParticleMomentumDirection(gloMomScatPart);
@@ -6384,9 +6401,9 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
     particleGun->SetParticlePosition(globalScatPos);
     particleGun->GeneratePrimaryVertex(anEvent);
 
-    
+
   }  else if (flagSigmaPlusN || flagSigma0P) {
-    //std::cout << "conversion scat" << std::endl;
+    std::cout << "conversion scat" << std::endl;
     G4ThreeVector localScatPos=localLambdaPos;
     G4ThreeVector globalScatPos = geomMan.Local2GlobalPos(TgtId, localScatPos);
     Kinema3Resonance LambdaScat;
@@ -6397,29 +6414,30 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
       // inside the LH2 target;
       scatParticle = particleTable->FindParticle("proton");
     } else {
+      std::cout << __LINE__ << std::endl;
       return;
     }
     G4ParticleDefinition* scatHyperon = particleTable->FindParticle("sigma+");
-    G4ParticleDefinition* recoilNucleon = particleTable->FindParticle("neutron");      
+    G4ParticleDefinition* recoilNucleon = particleTable->FindParticle("neutron");
     int reactMode=2;
 
     if (flagSigma0P) {
       scatHyperon = particleTable->FindParticle("sigma0");
-      recoilNucleon = particleTable->FindParticle("proton");      
+      recoilNucleon = particleTable->FindParticle("proton");
       reactMode=3;
     }
 
 
     LambdaScat = Kinema3Resonance(lambda->GetPDGMass()/GeV,
 				  scatParticle->GetPDGMass()/GeV,
-				  0.0 , 
+				  0.0 ,
 				  scatHyperon->GetPDGMass()/GeV,
 				  recoilNucleon->GetPDGMass()/GeV,
 				  scatHyperon->GetPDGMass()/GeV,
 				  0.0, p_lambda, 0.0,
 				  scatDistFlag);
-    
-    
+
+
     /* scattered Hyperon */
     G4double Energy_scatHyperon = LambdaScat.GetEnergy(4);
     //G4double momentum_scatHyperon = LambdaScat.GetMomentum(4);
@@ -6427,15 +6445,15 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
     G4ThreeVector momentumScatHyperon( mom[1], mom[2], mom[0]);
     momentumScatHyperon.rotateY(ThetaLambda*deg);
     momentumScatHyperon.rotateZ(PhiLambda*deg);
-    
+
     G4double ThetaScatHyperonCM = LambdaScat.GetThetaCM(1);
     G4double PhiScatHyperonCM   = LambdaScat.GetPhiCM(1);
-    
-    /*
-      G4cout << "ScatLambda (" << momentumScatLambda.x() << ", "
-      << momentumScatLambda.y() << ", " << momentumScatLambda.z() << ") "
-      << G4endl;
-    */
+
+
+    // G4cout << "ScatLambda (" << momentumScatLambda.x() << ", "
+    // 	   << momentumScatLambda.y() << ", " << momentumScatLambda.z() << ") "
+    // 	   << G4endl;
+
     /* scattered Proton or Deuteron*/
     G4double Energy_scatPart = LambdaScat.GetEnergy(5);
     //G4double momentum_scatPart = LambdaScat.GetMomentum(5);
@@ -6443,32 +6461,32 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
     G4ThreeVector momentumScatPart(mom[1], mom[2], mom[0]);
     momentumScatPart.rotateY(ThetaLambda*deg);
     momentumScatPart.rotateZ(PhiLambda*deg);
-    /*
-      G4cout << "ScatProton (" << momentumScatProton.x() << ", "
-      << momentumScatProton.y() << ", " << momentumScatProton.z() << ") "
-      << G4endl;
-    */
-    //G4cout << "ThetaPi : " << ThetaPi  << ", "
-    //<< "PhiPi : " << PhiPi  << G4endl;
-    
-    
+
+    // G4cout << "ScatProton (" << momentumScatProton.x() << ", "
+    // 	   << momentumScatProton.y() << ", " << momentumScatProton.z() << ") "
+    // 	   << G4endl;
+
+    // G4cout << "ThetaPi : " << ThetaPi  << ", "
+    // 	   << "PhiPi : " << PhiPi  << G4endl;
+
+
     //if (1) {
     /*
       G4cout << "Flight length = " << flength/cm << G4endl;
       G4cout << "Lambda (" << momentumLambda.x() << ", "
       << momentumLambda.y() << ", " << momentumLambda.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatLambda (" << momentumScatLambda.x() << ", "
       << momentumScatLambda.y() << ", " << momentumScatLambda.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatProton (" << momentumScatProton.x() << ", "
       << momentumScatProton.y() << ", " << momentumScatProton.z() << ") "
       << G4endl;
     */
 
-    //std::cout << "reactMomde = "  << reactMode << std::endl;
+    std::cout << "reactMomde = "  << reactMode << std::endl;
 
     anaMan_->SetPrimaryVertex(localVertexPos);
     anaMan_->SetHypBeamMomentum(momentumLambda);
@@ -6502,7 +6520,7 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
     particleGun->SetParticlePosition(globalVertexPos);
     particleGun->GeneratePrimaryVertex(anEvent);
 
-    /*scatt lambda*/    
+    /*scatt lambda*/
     G4ThreeVector gloMomLambda = geomMan.Local2GlobalDir(TgtId, momentumLambda);
     particleGun->SetParticleDefinition(scatHyperon);
     G4ThreeVector gloMomScatHyperon = geomMan.Local2GlobalDir(TgtId, momentumScatHyperon);
@@ -6511,7 +6529,7 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
     particleGun->SetParticlePosition(globalScatPos);
     particleGun->GeneratePrimaryVertex(anEvent);
 
-    /*scatt proton*/    
+    /*scatt proton*/
     particleGun->SetParticleDefinition(recoilNucleon);
     G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
     particleGun->SetParticleMomentumDirection(gloMomScatPart);
@@ -6519,8 +6537,11 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusLambda_Scat(G4Event* anEvent
     particleGun->SetParticlePosition(globalScatPos);
     particleGun->GeneratePrimaryVertex(anEvent);
 
+    std::cout << __LINE__ << std::endl;
 
   }
+
+  std::cout << __LINE__ << std::endl;
 
 }
 
@@ -6541,9 +6562,9 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusSigma(G4Event* anEvent)
   Kinema3Resonance Sigma;
   int DistFlag=9; // E dep gamma p --> K+ Lambda
 
-  Sigma = Kinema3Resonance(gamma->GetPDGMass()/GeV, 
+  Sigma = Kinema3Resonance(gamma->GetPDGMass()/GeV,
 			   proton->GetPDGMass()/GeV,
-			   0.0 , 
+			   0.0 ,
 			   sigma->GetPDGMass()/GeV,
 			   kaon->GetPDGMass()/GeV,
 			   sigma->GetPDGMass()/GeV,
@@ -6569,7 +6590,7 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusSigma(G4Event* anEvent)
   G4ThreeVector momentumBeam(0., 0., -beammom);
 
 
-  if (!(ThetaK>0.&&ThetaK<25.)) 
+  if (!(ThetaK>0.&&ThetaK<25.))
     return;
 
 
@@ -6579,12 +6600,12 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusSigma(G4Event* anEvent)
   // This is continued untill the vertex position is LH2
   do {
     //primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
-    primary_vertex_x = 0.*mm;    
+    primary_vertex_x = 0.*mm;
     //primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
-    primary_vertex_y = 0.*mm;        
+    primary_vertex_y = 0.*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
   /*
@@ -6597,7 +6618,7 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_KPlusSigma(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   if (1) {
     particleGun->SetParticleDefinition(kaon);
     G4ThreeVector gloMomK = geomMan.Local2GlobalDir(TgtId, momentumK);
@@ -6652,12 +6673,12 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_PhiP(G4Event* anEvent)
   double width = 4.26/1000.;
 
   Kinema3Resonance Sigma;
-  int DistFlag=0; // 
+  int DistFlag=0; //
 
-  Sigma = Kinema3Resonance(gamma->GetPDGMass()/GeV, 
+  Sigma = Kinema3Resonance(gamma->GetPDGMass()/GeV,
 			   proton->GetPDGMass()/GeV,
-			   kaonP->GetPDGMass()/GeV, 
-			   kaonM->GetPDGMass()/GeV, 
+			   kaonP->GetPDGMass()/GeV,
+			   kaonM->GetPDGMass()/GeV,
 			   proton->GetPDGMass()/GeV,
 			   mass,
 			   width, beammom, 0.0, DistFlag);
@@ -6688,7 +6709,7 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_PhiP(G4Event* anEvent)
   G4ThreeVector momentumBeam(0., 0., -beammom);
 
 
-  //if (!(ThetaK>0.&&ThetaK<25.)) 
+  //if (!(ThetaK>0.&&ThetaK<25.))
   //return;
 
 
@@ -6698,12 +6719,12 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_PhiP(G4Event* anEvent)
   // This is continued untill the vertex position is LH2
   do {
     //primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
-    primary_vertex_x = 0.*mm;    
+    primary_vertex_x = 0.*mm;
     //primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
-    primary_vertex_y = 0.*mm;        
+    primary_vertex_y = 0.*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
   /*
@@ -6716,7 +6737,7 @@ void CFTPrimaryGeneratorAction::GenerateGammaP_PhiP(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   if (1) {
     particleGun->SetParticleDefinition(kaonP);
     G4ThreeVector gloMomKP = geomMan.Local2GlobalDir(TgtId, momentumKP);
@@ -6782,8 +6803,8 @@ void CFTPrimaryGeneratorAction::GenerateUniform_PiPlus(G4Event* anEvent)
     primary_vertex_x = 0.*mm;
     primary_vertex_y = 0.*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
 
@@ -6793,14 +6814,14 @@ void CFTPrimaryGeneratorAction::GenerateUniform_PiPlus(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   particleGun->SetParticleDefinition(piPlus);
   G4ThreeVector gloMomPiPlus = geomMan.Local2GlobalDir(TgtId, momentumPiPlus);
   particleGun->SetParticleMomentumDirection(gloMomPiPlus);
   particleGun->SetParticleEnergy((Energy_pi - piPlus->GetPDGMass()/GeV)*GeV);
   particleGun->SetParticlePosition(globalVertexPos);
   particleGun->GeneratePrimaryVertex(anEvent);
-  
+
   anaMan_->SetPrimaryVertex(localVertexPos);
   anaMan_->SetScatMesonMomentum(momentumPiPlus);
   anaMan_->SetThetaMeson(theta);
@@ -6838,8 +6859,8 @@ void CFTPrimaryGeneratorAction::GenerateUniform_Proton(G4Event* anEvent)
     primary_vertex_x = 0.*mm;
     primary_vertex_y = 0.*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
 
@@ -6849,14 +6870,14 @@ void CFTPrimaryGeneratorAction::GenerateUniform_Proton(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   particleGun->SetParticleDefinition(proton);
   G4ThreeVector gloMomProton = geomMan.Local2GlobalDir(TgtId, momentumProton);
   particleGun->SetParticleMomentumDirection(gloMomProton);
   particleGun->SetParticleEnergy((Energy_p - proton->GetPDGMass()/GeV)*GeV);
   particleGun->SetParticlePosition(globalVertexPos);
   particleGun->GeneratePrimaryVertex(anEvent);
-  
+
   anaMan_->SetPrimaryVertex(localVertexPos);
   anaMan_->SetScatMesonMomentum(momentumProton);
   anaMan_->SetThetaMeson(theta);
@@ -6877,9 +6898,9 @@ bool CFTPrimaryGeneratorAction::NeutronP_Scattering(G4Event* anEvent, G4ThreeVec
   G4double m_neutron = neutron->GetPDGMass()/GeV;
 
 
-  double ThetaDecayNatBeamFrame, PhiDecayNatBeamFrame; 
-  calcThetaPhi(momentumDecayN, 
-	       &ThetaDecayNatBeamFrame, 
+  double ThetaDecayNatBeamFrame, PhiDecayNatBeamFrame;
+  calcThetaPhi(momentumDecayN,
+	       &ThetaDecayNatBeamFrame,
 	       &PhiDecayNatBeamFrame);
 
   if (PhiDecayNatBeamFrame<0)
@@ -6898,7 +6919,7 @@ bool CFTPrimaryGeneratorAction::NeutronP_Scattering(G4Event* anEvent, G4ThreeVec
 			     50.779,  48.691,  46.905,  45.364,  44.022,
 			     42.844,  41.803,  40.876,  40.046,  39.298,
 			     38.620,  38.002,  37.436,  36.915,  36.432};
-  
+
   double momentum_decayN = momentumDecayN.mag();
 
   double Ekin = (sqrt(momentum_decayN*momentum_decayN+m_neutron*m_neutron)
@@ -6932,16 +6953,16 @@ bool CFTPrimaryGeneratorAction::NeutronP_Scattering(G4Event* anEvent, G4ThreeVec
       }
     }
   }
-  
+
   if (index_Ekin<0 || index_Ekin>=30) {
     fprintf(stderr, "PrimaryGeneratorAction::GeneratePiKSigmaScat2 invalid index_Ekin : %d", index_Ekin);
     exit(-1);
   }
   neutron_react_rate *= np_cs/30.;
-  
+
   G4double dy = 0.5*mm; //mm
   G4double totaly=0.0;  //mm
-  
+
   G4ThreeVector localNeutronPos = Pos0;
   int flagTgtType2 = -1;
   bool flagNeutronScattering=false;
@@ -6950,18 +6971,18 @@ bool CFTPrimaryGeneratorAction::NeutronP_Scattering(G4Event* anEvent, G4ThreeVec
     flagTgtType2 = -1;
     totaly += dy;
     localNeutronPos += momentumDecayN*dy/momentumDecayN.mag();
-    
+
     flagNeutronScattering=false;
-    
+
     flagTgtType2 = getTargetFlag(localNeutronPos);
-    
+
     if (flagTgtType2 == 0 ) {
       flagNeutronScattering  = scatteringCheck(neutron_react_rate, dy/mm);
     }
-    
+
     if (flagNeutronScattering)
       break;
-    
+
     nIte++;
     if (nIte>1000)
       break;
@@ -6980,9 +7001,9 @@ bool CFTPrimaryGeneratorAction::NeutronP_Scattering(G4Event* anEvent, G4ThreeVec
     } else {
       return false;
     }
-    //std::cout << scatParticle->GetPDGMass()/GeV << std::endl; 
+    //std::cout << scatParticle->GetPDGMass()/GeV << std::endl;
     Kinema3Resonance NNScat;
-    NNScat = Kinema3Resonance(neutron->GetPDGMass()/GeV, 
+    NNScat = Kinema3Resonance(neutron->GetPDGMass()/GeV,
 			      scatParticle->GetPDGMass()/GeV,
 			      0.0 , neutron->GetPDGMass()/GeV,
 			      scatParticle->GetPDGMass()/GeV,
@@ -6994,16 +7015,16 @@ bool CFTPrimaryGeneratorAction::NeutronP_Scattering(G4Event* anEvent, G4ThreeVec
     PhiScatNeutronCM = NNScat.GetPhiCM(1);
 
     double mom[3];
-    
+
     /* scattered Neutron */
     G4double Energy_scatN = NNScat.GetEnergy(4);
     //G4double momentum_scatN = NNScat.GetMomentum(4);
     NNScat.GetMomentum(4,mom);
     G4ThreeVector momentumScatN( mom[1], mom[2], mom[0]);
-    
+
     momentumScatN.rotateY(ThetaDecayNatBeamFrame*deg);
     momentumScatN.rotateZ(PhiDecayNatBeamFrame*deg);
-    
+
     /* scattered Proton or Deuteron*/
     G4double Energy_scatPart = NNScat.GetEnergy(5);
     //G4double momentum_scatPart = NNScat.GetMomentum(5);
@@ -7011,25 +7032,25 @@ bool CFTPrimaryGeneratorAction::NeutronP_Scattering(G4Event* anEvent, G4ThreeVec
     G4ThreeVector momentumScatPart(mom[1], mom[2], mom[0]);
     momentumScatPart.rotateY(ThetaDecayNatBeamFrame*deg);
     momentumScatPart.rotateZ(PhiDecayNatBeamFrame*deg);
-    
+
     /*
-      std::cout << "DecayN = ( " << momentumDecayN.x() << ", " 
+      std::cout << "DecayN = ( " << momentumDecayN.x() << ", "
       << momentumDecayN.y() << ", " << momentumDecayN.z()
       << ")" << std::endl;
-      
-      std::cout << "ScatN = ( " << momentumScatN.x() << ", " 
+
+      std::cout << "ScatN = ( " << momentumScatN.x() << ", "
       << momentumScatN.y() << ", " << momentumScatN.z()
       << ")" << std::endl;
-      
-      std::cout << "ScatPart = ( " << momentumScatPart.x() << ", " 
+
+      std::cout << "ScatPart = ( " << momentumScatPart.x() << ", "
       << momentumScatPart.y() << ", " << momentumScatPart.z()
       << ")" << std::endl;
-      
-      std::cout << "Delta = ( " 
+
+      std::cout << "Delta = ( "
       << momentumDecayN.x()-momentumScatN.x()-momentumScatPart.x()
-      << ", " 
+      << ", "
       << momentumDecayN.y()-momentumScatN.y()-momentumScatPart.y()
-      << ", " 
+      << ", "
       << momentumDecayN.z()-momentumScatN.z()-momentumScatPart.z()
       << ")" << std::endl;
     */
@@ -7044,23 +7065,23 @@ bool CFTPrimaryGeneratorAction::NeutronP_Scattering(G4Event* anEvent, G4ThreeVec
     particleGun->SetParticlePosition(globalDecayPos);
     particleGun->GeneratePrimaryVertex(anEvent);
     */
-    
-    /*scat neutron*/    
+
+    /*scat neutron*/
     particleGun->SetParticleDefinition(neutron);
     G4ThreeVector gloMomentumScatN = geomMan.Local2GlobalDir(TgtId, momentumScatN);
     particleGun->SetParticleMomentumDirection(gloMomentumScatN);
     particleGun->SetParticleEnergy((Energy_scatN - neutron->GetPDGMass()/GeV)*GeV);
     particleGun->SetParticlePosition(globalNNScatPos);
     particleGun->GeneratePrimaryVertex(anEvent);
-    
-    /*scatt proton*/    
+
+    /*scatt proton*/
     particleGun->SetParticleDefinition(scatParticle);
     G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
     particleGun->SetParticleMomentumDirection(gloMomScatPart);
     particleGun->SetParticleEnergy((Energy_scatPart - scatParticle->GetPDGMass()/GeV)*GeV);
     particleGun->SetParticlePosition(globalNNScatPos);
     particleGun->GeneratePrimaryVertex(anEvent);
-    
+
     //anaMan_->SetPrimaryVertex(localVertexPos);
     //anaMan_->SetHypBeamMomentum(momentumSigma);
     //anaMan_->SetScatMesonMomentum(momentumKPlus);
@@ -7072,7 +7093,7 @@ bool CFTPrimaryGeneratorAction::NeutronP_Scattering(G4Event* anEvent, G4ThreeVec
     anaMan_->SetNNScatPos(localNNScatPos);
     anaMan_->SetDecayFlag();
     anaMan_->SetNNScatFlag();
-    anaMan_->SetNNScatTarget(flagTgtType2);	
+    anaMan_->SetNNScatTarget(flagTgtType2);
     anaMan_->SetScatProtonMomentum(momentumScatPart);
     //anaMan_->SetFlightLengthInTarget(dxInH, 0);
     //anaMan_->SetDecayPiMomentum(momentumDecayPi);
@@ -7083,7 +7104,7 @@ bool CFTPrimaryGeneratorAction::NeutronP_Scattering(G4Event* anEvent, G4ThreeVec
 
     return true;
   }
-  
+
   return false;
 
 }
@@ -7104,9 +7125,9 @@ bool CFTPrimaryGeneratorAction::ProtonP_Scattering(G4Event* anEvent, G4ThreeVect
   G4double m_proton = proton->GetPDGMass()/GeV;
 
 
-  double ThetaDecayNatBeamFrame, PhiDecayNatBeamFrame; 
-  calcThetaPhi(momentumDecayN, 
-	       &ThetaDecayNatBeamFrame, 
+  double ThetaDecayNatBeamFrame, PhiDecayNatBeamFrame;
+  calcThetaPhi(momentumDecayN,
+	       &ThetaDecayNatBeamFrame,
 	       &PhiDecayNatBeamFrame);
 
   if (PhiDecayNatBeamFrame<0)
@@ -7117,16 +7138,16 @@ bool CFTPrimaryGeneratorAction::ProtonP_Scattering(G4Event* anEvent, G4ThreeVect
   double momentum_decayN = momentumDecayN.mag();
 
   G4double proton_react_rate = 0.0001274; // 1/mm /* 30mb and LH2 target*/
-	
+
   double Ekin_p[14] = {18.2, 19.8, 25.63, 30.14, 39.4, 68.3, 95., 98., 118., 142.,
 		       147., 172., 250., 312.};
-  
+
   double pp_cs_table[14] = { 351.8, 314.1, 238.7, 188.4, 138.2, 81.6,
 			     56.5, 56.5, 52.7, 52.7, 51.5, 50.2, 50.2, 46.4};
-  
+
   double Ekin = (sqrt(momentum_decayN*momentum_decayN+m_proton*m_proton)
 		 -m_proton)*1000. ;// MeV
-	
+
   int index_Ekin=-1;
   double pp_cs;
   for (int i=0; i<14; i++) {
@@ -7154,41 +7175,41 @@ bool CFTPrimaryGeneratorAction::ProtonP_Scattering(G4Event* anEvent, G4ThreeVect
       }
     }
   }
-  
+
   if (index_Ekin<0 || index_Ekin>=14) {
     fprintf(stderr, "PrimaryGeneratorAction::GeneratePiKSigmaScat2 invalid index_Ekin : %d", index_Ekin);
     exit(-1);
   }
   proton_react_rate *= pp_cs/30.;
-  
+
   G4double dy = 0.5*mm; //mm
   G4double totaly=0.0;  //mm
-  
+
   G4ThreeVector localProtonPos = Pos0;
   int flagTgtType2 = -1;
-	
+
   int nIte=0;
   while (1) {
     flagTgtType2 = -1;
     totaly += dy;
     localProtonPos += momentumDecayN*dy/momentumDecayN.mag();
-    
+
     flagProtonScattering=false;
-    
+
     flagTgtType2 = getTargetFlag(localProtonPos);
-    
+
     if (flagTgtType2 == 0 || flagTgtType2 == 1) {
       flagProtonScattering  = scatteringCheck(proton_react_rate, dy/mm);
     }
-    
+
     if (flagProtonScattering)
       break;
-    
+
     nIte++;
     if (nIte>1000)
       break;
   }
-  
+
   if (flagProtonScattering) {
     //std::cout << "*********************** pp scat ***********************" << std::endl;
     G4ThreeVector localNNScatPos=localProtonPos;
@@ -7202,15 +7223,15 @@ bool CFTPrimaryGeneratorAction::ProtonP_Scattering(G4Event* anEvent, G4ThreeVect
     } else {
       return false;
     }
-    //std::cout << scatParticle->GetPDGMass()/GeV << std::endl; 
+    //std::cout << scatParticle->GetPDGMass()/GeV << std::endl;
     Kinema3Resonance NNScat;
-    NNScat = Kinema3Resonance(decayNucl->GetPDGMass()/GeV, 
+    NNScat = Kinema3Resonance(decayNucl->GetPDGMass()/GeV,
 			      scatParticle->GetPDGMass()/GeV,
 			      0.0 , decayNucl->GetPDGMass()/GeV,
 			      scatParticle->GetPDGMass()/GeV,
 			      decayNucl->GetPDGMass()/GeV,
 			      0.0, momentum_decayN, 0.0, scatDistFlag);
-	  
+
     double mom[3];
 
     /* scattered Necleon */
@@ -7218,10 +7239,10 @@ bool CFTPrimaryGeneratorAction::ProtonP_Scattering(G4Event* anEvent, G4ThreeVect
     //G4double momentum_scatN = NNScat.GetMomentum(4);
     NNScat.GetMomentum(4,mom);
     G4ThreeVector momentumScatN( mom[1], mom[2], mom[0]);
-	  
+
     momentumScatN.rotateY(ThetaDecayNatBeamFrame*deg);
     momentumScatN.rotateZ(PhiDecayNatBeamFrame*deg);
-	  
+
     /* scattered Proton or Deuteron*/
     G4double Energy_scatPart = NNScat.GetEnergy(5);
     //G4double momentum_scatPart = NNScat.GetMomentum(5);
@@ -7229,30 +7250,30 @@ bool CFTPrimaryGeneratorAction::ProtonP_Scattering(G4Event* anEvent, G4ThreeVect
     G4ThreeVector momentumScatPart(mom[1], mom[2], mom[0]);
     momentumScatPart.rotateY(ThetaDecayNatBeamFrame*deg);
     momentumScatPart.rotateZ(PhiDecayNatBeamFrame*deg);
-    
+
     /*
-      std::cout << "DecayN = ( " << momentumDecayN.x() << ", " 
+      std::cout << "DecayN = ( " << momentumDecayN.x() << ", "
       << momentumDecayN.y() << ", " << momentumDecayN.z()
       << ")" << std::endl;
-      
-      std::cout << "ScatN = ( " << momentumScatN.x() << ", " 
+
+      std::cout << "ScatN = ( " << momentumScatN.x() << ", "
       << momentumScatN.y() << ", " << momentumScatN.z()
       << ")" << std::endl;
-      
-      std::cout << "ScatPart = ( " << momentumScatPart.x() << ", " 
+
+      std::cout << "ScatPart = ( " << momentumScatPart.x() << ", "
       << momentumScatPart.y() << ", " << momentumScatPart.z()
       << ")" << std::endl;
-      
-      std::cout << "Delta = ( " 
+
+      std::cout << "Delta = ( "
       << momentumDecayN.x()-momentumScatN.x()-momentumScatPart.x()
-      << ", " 
+      << ", "
       << momentumDecayN.y()-momentumScatN.y()-momentumScatPart.y()
-      << ", " 
+      << ", "
       << momentumDecayN.z()-momentumScatN.z()-momentumScatPart.z()
       << ")" << std::endl;
     */
-	  
-    /*scat proton*/    
+
+    /*scat proton*/
     //G4cout << "pp scat" << G4endl;
 
     particleGun->SetParticleDefinition(decayNucl);
@@ -7261,16 +7282,16 @@ bool CFTPrimaryGeneratorAction::ProtonP_Scattering(G4Event* anEvent, G4ThreeVect
     particleGun->SetParticleEnergy((Energy_scatN - decayNucl->GetPDGMass()/GeV)*GeV);
     particleGun->SetParticlePosition(globalNNScatPos);
     particleGun->GeneratePrimaryVertex(anEvent);
-    
-    /*scatt proton*/    
+
+    /*scatt proton*/
     particleGun->SetParticleDefinition(scatParticle);
     G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
     particleGun->SetParticleMomentumDirection(gloMomScatPart);
     particleGun->SetParticleEnergy((Energy_scatPart - scatParticle->GetPDGMass()/GeV)*GeV);
     particleGun->SetParticlePosition(globalNNScatPos);
     particleGun->GeneratePrimaryVertex(anEvent);
-    
-	  
+
+
     //anaMan_->SetPrimaryVertex(localVertexPos);
     //anaMan_->SetHypBeamMomentum(momentumSigma);
     //anaMan_->SetScatMesonMomentum(momentumKPlus);
@@ -7282,13 +7303,13 @@ bool CFTPrimaryGeneratorAction::ProtonP_Scattering(G4Event* anEvent, G4ThreeVect
     anaMan_->SetNNScatPos(localNNScatPos);
     //anaMan_->SetDecayFlag(decayMode);
     anaMan_->SetNNScatFlag();
-    anaMan_->SetNNScatTarget(flagTgtType2);	
+    anaMan_->SetNNScatTarget(flagTgtType2);
     anaMan_->SetScatProtonMomentum(momentumScatPart);
     //anaMan_->SetFlightLengthInTarget(dxInH, 0);
     //anaMan_->SetDecayPiMomentum(momentumDecayPi);
     anaMan_->SetDecayNucleonMomentum(momentumDecayN);
     //anaMan_->SetBeamMomentum(beammom);
-    
+
     return true;
   }
 
@@ -7306,9 +7327,9 @@ bool CFTPrimaryGeneratorAction::PiMinusP_Scattering(G4Event* anEvent, G4ThreeVec
   G4ParticleDefinition* piMinus;
   piMinus = particleTable->FindParticle("pi-");
 
-  double ThetaDecayPiatBeamFrame, PhiDecayPiatBeamFrame; 
-  calcThetaPhi(momentumDecayPi, 
-	       &ThetaDecayPiatBeamFrame, 
+  double ThetaDecayPiatBeamFrame, PhiDecayPiatBeamFrame;
+  calcThetaPhi(momentumDecayPi,
+	       &ThetaDecayPiatBeamFrame,
 	       &PhiDecayPiatBeamFrame);
 
   if (PhiDecayPiatBeamFrame<0)
@@ -7317,9 +7338,9 @@ bool CFTPrimaryGeneratorAction::PiMinusP_Scattering(G4Event* anEvent, G4ThreeVec
   /* pi-p scatt */
   G4double pion_react_rate = 0.0001274; // 1/mm /* 30mb and LH2 target*/
   //G4double pion_react_rate = 0.0002548; // 1/mm /* 60mb and LH2 target*/
-  
+
   double p_pi_table[8] = {0.1479, 0.1738, 0.1883, 0.2123, 0.2379, 0.2712, 0.2983, 0.3228};
-  
+
   double pip_cs_table[8] = { 3.4, 5.12, 6.64, 9.8, 15.2, 19.4, 18.3, 14.8};
   double p = momentumDecayPi.mag();
 
@@ -7350,48 +7371,48 @@ bool CFTPrimaryGeneratorAction::PiMinusP_Scattering(G4Event* anEvent, G4ThreeVec
       }
     }
   }
-  
+
   if (index_p<0 || index_p>=8) {
     fprintf(stderr, "PrimaryGeneratorAction::GeneratePiKSigmaScat2 invalid index_p : %d", index_p);
     exit(-1);
   }
   pion_react_rate *= pip_cs/30.;
-  
+
   G4double dz = 0.5*mm; //mm
   G4double totalz=0.0;  //mm
-  
+
   G4double ctau_pi=7804.5; /*mm*/
   G4double p_pi = momentumDecayPi.mag();
   G4double m_pi = piMinus->GetPDGMass()/GeV;
-  
+
   G4ThreeVector localPionPos = Pos0;
   int flagTgtType3 = -1;
-  
+
   G4bool flagPionScattering=false;
   G4bool flagPionDecay=false;
-  
+
   int nIte=0;
   while (1) {
     flagTgtType3 = -1;
     totalz += dz;
     localPionPos += momentumDecayPi*dz/momentumDecayPi.mag();
-    
+
     flagPionScattering=false;
     flagPionDecay=false;
-    
+
     flagTgtType3 = getTargetFlag(localPionPos);
-    
+
     if (flagTgtType3 == 0) {
       flagPionScattering  = scatteringCheck(pion_react_rate, dz/mm);
     }
-    
+
     if (flagPionScattering)
       break;
-    
+
     flagPionDecay = decayCheck(ctau_pi, p_pi, m_pi, dz/mm );
     if (flagPionDecay)
       break;
-    
+
     nIte++;
     if (nIte>1000)
       break;
@@ -7412,15 +7433,15 @@ bool CFTPrimaryGeneratorAction::PiMinusP_Scattering(G4Event* anEvent, G4ThreeVec
     }
 
 
-    //std::cout << scatParticle->GetPDGMass()/GeV << std::endl; 
+    //std::cout << scatParticle->GetPDGMass()/GeV << std::endl;
     Kinema3Resonance PiNScat;
-    PiNScat = Kinema3Resonance(piMinus->GetPDGMass()/GeV, 
+    PiNScat = Kinema3Resonance(piMinus->GetPDGMass()/GeV,
 			       scatParticle->GetPDGMass()/GeV,
 			       0.0 , piMinus->GetPDGMass()/GeV,
 			       scatParticle->GetPDGMass()/GeV,
 			       piMinus->GetPDGMass()/GeV,
 			       0.0, momentumDecayPi.mag(), 0.0, scatDistFlag);
-    
+
     double mom[3];
 
     /* scattered pion */
@@ -7428,10 +7449,10 @@ bool CFTPrimaryGeneratorAction::PiMinusP_Scattering(G4Event* anEvent, G4ThreeVec
     //G4double momentum_scatPi = PiNScat.GetMomentum(4);
     PiNScat.GetMomentum(4,mom);
     G4ThreeVector momentumScatPi( mom[1], mom[2], mom[0]);
-    
+
     momentumScatPi.rotateY(ThetaDecayPiatBeamFrame*deg);
     momentumScatPi.rotateZ(PhiDecayPiatBeamFrame*deg);
-    
+
     /* scattered Proton or Deuteron*/
     G4double Energy_scatPart = PiNScat.GetEnergy(5);
     //G4double momentum_scatPart = PiNScat.GetMomentum(5);
@@ -7439,29 +7460,29 @@ bool CFTPrimaryGeneratorAction::PiMinusP_Scattering(G4Event* anEvent, G4ThreeVec
     G4ThreeVector momentumScatPart(mom[1], mom[2], mom[0]);
     momentumScatPart.rotateY(ThetaDecayPiatBeamFrame*deg);
     momentumScatPart.rotateZ(PhiDecayPiatBeamFrame*deg);
-    
+
     /*
-      std::cout << "DecayPi = ( " << momentumDecayPi.x() << ", " 
+      std::cout << "DecayPi = ( " << momentumDecayPi.x() << ", "
       << momentumDecayPi.y() << ", " << momentumDecayPi.z()
       << ")" << std::endl;
-      
-      std::cout << "ScatPi = ( " << momentumScatPi.x() << ", " 
+
+      std::cout << "ScatPi = ( " << momentumScatPi.x() << ", "
       << momentumScatPi.y() << ", " << momentumScatPi.z()
       << ")" << std::endl;
-      
-      std::cout << "ScatPart = ( " << momentumScatPart.x() << ", " 
+
+      std::cout << "ScatPart = ( " << momentumScatPart.x() << ", "
       << momentumScatPart.y() << ", " << momentumScatPart.z()
       << ")" << std::endl;
-      
-      std::cout << "Delta = ( " 
+
+      std::cout << "Delta = ( "
       << momentumDecayPi.x()-momentumScatPi.x()-momentumScatPart.x()
-      << ", " 
+      << ", "
       << momentumDecayPi.y()-momentumScatPi.y()-momentumScatPart.y()
-      << ", " 
+      << ", "
       << momentumDecayPi.z()-momentumScatPi.z()-momentumScatPart.z()
       << ")" << std::endl;
     */
-    
+
     /* decay neutron */
     /*
     particleGun->SetParticleDefinition(neutron);
@@ -7470,24 +7491,24 @@ bool CFTPrimaryGeneratorAction::PiMinusP_Scattering(G4Event* anEvent, G4ThreeVec
     particleGun->SetParticleEnergy((Energy_decayN - neutron->GetPDGMass()/GeV)*GeV);
     particleGun->SetParticlePosition(globalDecayPos);
     particleGun->GeneratePrimaryVertex(anEvent);
-    */    
-    
-    /*scat pi-*/    
+    */
+
+    /*scat pi-*/
     particleGun->SetParticleDefinition(piMinus);
     G4ThreeVector gloMomentumScatPi = geomMan.Local2GlobalDir(TgtId, momentumScatPi);
     particleGun->SetParticleMomentumDirection(gloMomentumScatPi);
     particleGun->SetParticleEnergy((Energy_scatPi - piMinus->GetPDGMass()/GeV)*GeV);
     particleGun->SetParticlePosition(globalPiNScatPos);
     particleGun->GeneratePrimaryVertex(anEvent);
-    
-    /*scatt proton*/    
+
+    /*scatt proton*/
     particleGun->SetParticleDefinition(scatParticle);
     G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
     particleGun->SetParticleMomentumDirection(gloMomScatPart);
     particleGun->SetParticleEnergy((Energy_scatPart - scatParticle->GetPDGMass()/GeV)*GeV);
     particleGun->SetParticlePosition(globalPiNScatPos);
     particleGun->GeneratePrimaryVertex(anEvent);
-    
+
     //anaMan_->SetPrimaryVertex(localVertexPos);
     //anaMan_->SetHypBeamMomentum(momentumSigma);
     //anaMan_->SetScatMesonMomentum(momentumKPlus);
@@ -7499,7 +7520,7 @@ bool CFTPrimaryGeneratorAction::PiMinusP_Scattering(G4Event* anEvent, G4ThreeVec
     anaMan_->SetPiNScatPos(localPiNScatPos);
     anaMan_->SetDecayFlag();
     anaMan_->SetPiNScatFlag();
-    anaMan_->SetPiNScatTarget(flagTgtType3);	
+    anaMan_->SetPiNScatTarget(flagTgtType3);
     anaMan_->SetScatProtonMomentum(momentumScatPart);
     //anaMan_->SetFlightLengthInTarget(dxInH, 0);
     //anaMan_->SetDecayPiMomentum(momentumDecayPi);
@@ -7521,14 +7542,14 @@ bool CFTPrimaryGeneratorAction::LambdaP_Scattering(G4Event* anEvent, G4ThreeVect
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
 
-  G4ParticleDefinition* lambda  = particleTable->FindParticle("lambda");  
+  G4ParticleDefinition* lambda  = particleTable->FindParticle("lambda");
   //G4ParticleDefinition* proton = particleTable->FindParticle("proton");
   G4ParticleDefinition* neutron = particleTable->FindParticle("neutron");
   G4ParticleDefinition* piMinus = particleTable->FindParticle("pi-");
 
-  double ThetaLambda, PhiLambda; 
-  calcThetaPhi(momentumLambda, 
-	       &ThetaLambda, 
+  double ThetaLambda, PhiLambda;
+  calcThetaPhi(momentumLambda,
+	       &ThetaLambda,
 	       &PhiLambda);
 
 
@@ -7562,10 +7583,10 @@ bool CFTPrimaryGeneratorAction::LambdaP_Scattering(G4Event* anEvent, G4ThreeVect
 
 #if 0
     std::cout << "------" << std::endl;
-    std::cout << "MomLambda ( " << momentumLambda.x() << ", "  
+    std::cout << "MomLambda ( " << momentumLambda.x() << ", "
 	      << momentumLambda.y() << ", " << momentumLambda.z()
 	      << ")" << std::endl;
-    std::cout << "LocalPos ( " << localLambdaPos.x() << ", "  
+    std::cout << "LocalPos ( " << localLambdaPos.x() << ", "
 	      << localLambdaPos.y() << ", " << localLambdaPos.z()
 	      << ")" << std::endl;
     {
@@ -7594,8 +7615,8 @@ bool CFTPrimaryGeneratorAction::LambdaP_Scattering(G4Event* anEvent, G4ThreeVect
       //E_sigma = sqrt(p_sigma*p_sigma + m_sigma*m_sigma);
     }
     /*
-    G4cout << "Length : " << totalx << ", p = " << p_lambda*1000. 
-	   << " MeV/c, Ekin = "	   << (E_lambda-m_lambda)*1000. 
+    G4cout << "Length : " << totalx << ", p = " << p_lambda*1000.
+	   << " MeV/c, Ekin = "	   << (E_lambda-m_lambda)*1000.
 	   << " MeV" << G4endl;
     */
     if (fabs(p_lambda)<0.000001) {
@@ -7644,7 +7665,7 @@ bool CFTPrimaryGeneratorAction::LambdaP_Scattering(G4Event* anEvent, G4ThreeVect
 				   decayPi->GetPDGMass()/GeV,
 				   decayNucl->GetPDGMass()/GeV,
 				   0.0, p_lambda, 0.0);
-    
+
     double mom[3];
 
     /* Neucleon */
@@ -7654,7 +7675,7 @@ bool CFTPrimaryGeneratorAction::LambdaP_Scattering(G4Event* anEvent, G4ThreeVect
     G4ThreeVector momentumDecayN(mom[1], mom[2], mom[0]);
     //double ThetaDecayN = LambdaDecay.GetTheta(4);
     //double PhiDecayN = LambdaDecay.GetPhi(4);
-    
+
     /* pi */
     double Energy_decayPi = LambdaDecay.GetEnergy(5);
     //double momentum_decayPi = LambdaDecay.GetMomentum(5);
@@ -7662,80 +7683,80 @@ bool CFTPrimaryGeneratorAction::LambdaP_Scattering(G4Event* anEvent, G4ThreeVect
     G4ThreeVector momentumDecayPi( mom[1], mom[2], mom[0]);
     //double ThetaDecayPi = LambdaDecay.GetTheta(5);
     //double PhiDecayPi = LambdaDecay.GetPhi(5);
-    
+
     // Neucleon momentum at beam frame
     momentumDecayN.rotateY(ThetaLambda*deg);
     momentumDecayN.rotateZ(PhiLambda*deg);
-    
+
     // pi momentum at beam frame
     momentumDecayPi.rotateY(ThetaLambda*deg);
     momentumDecayPi.rotateZ(PhiLambda*deg);
-    
-    
-    
+
+
+
     if (decayMode==0) {
       // pi0 n
       bool flagNpScattering = NeutronP_Scattering(anEvent, momentumDecayN, localDecayPos);
-      
+
       if (flagNpScattering) {
 	// generate decay pi0
-	
+
 	particleGun->SetParticleDefinition(decayPi);
 	G4ThreeVector gloMomDecayPi = geomMan.Local2GlobalDir(TgtId, momentumDecayPi);
 	particleGun->SetParticleMomentumDirection(gloMomDecayPi);
 	particleGun->SetParticleEnergy((Energy_decayPi - piMinus->GetPDGMass()/GeV)*GeV);
 	particleGun->SetParticlePosition(globalDecayPos);
 	particleGun->GeneratePrimaryVertex(anEvent);
-	
+
 	anaMan_->SetDecayPos(localDecayPos);
 	anaMan_->SetDecayPiMomentum(momentumDecayPi);
 	anaMan_->SetDecayNucleonMomentum(momentumDecayN);
-	
+
 	return true;
       }
     } else if (decayMode==1) {
-      
+
       bool flagPpScattering = ProtonP_Scattering(anEvent, momentumDecayN, localDecayPos);
       if (flagPpScattering) {
 	// generate decay pi-
-	
+
 	particleGun->SetParticleDefinition(decayPi);
 	G4ThreeVector gloMomDecayPi = geomMan.Local2GlobalDir(TgtId, momentumDecayPi);
 	particleGun->SetParticleMomentumDirection(gloMomDecayPi);
 	particleGun->SetParticleEnergy((Energy_decayPi - piMinus->GetPDGMass()/GeV)*GeV);
 	particleGun->SetParticlePosition(globalDecayPos);
 	particleGun->GeneratePrimaryVertex(anEvent);
-	
+
 	anaMan_->SetDecayPos(localDecayPos);
 	anaMan_->SetDecayPiMomentum(momentumDecayPi);
 	anaMan_->SetDecayNucleonMomentum(momentumDecayN);
-	
+
 	return true;
       }
 
 
       bool flagPipScattering = PiMinusP_Scattering(anEvent, momentumDecayPi, localDecayPos);
-      
+
       if (flagPipScattering) {
 	// generate decay n
-	
+
 	particleGun->SetParticleDefinition(decayNucl);
 	G4ThreeVector gloMomDecayN = geomMan.Local2GlobalDir(TgtId, momentumDecayN);
 	particleGun->SetParticleMomentumDirection(gloMomDecayN);
 	particleGun->SetParticleEnergy((Energy_decayN - neutron->GetPDGMass()/GeV)*GeV);
 	particleGun->SetParticlePosition(globalDecayPos);
 	particleGun->GeneratePrimaryVertex(anEvent);
-	
+
 	anaMan_->SetDecayPos(localDecayPos);
 	anaMan_->SetDecayNucleonMomentum(momentumDecayN);
-	
+
 	return true;
-	
+
       }
     }
 
     return false;
-    
+
   } else if (flagScattering) {
     //std::cout << "scat" << std::endl;
     G4ThreeVector localScatPos=localLambdaPos;
@@ -7753,13 +7774,13 @@ bool CFTPrimaryGeneratorAction::LambdaP_Scattering(G4Event* anEvent, G4ThreeVect
 
     LambdaScat = Kinema3Resonance(lambda->GetPDGMass()/GeV,
 				  scatParticle->GetPDGMass()/GeV,
-				  0.0 , 
+				  0.0 ,
 				  lambda->GetPDGMass()/GeV,
 				  scatParticle->GetPDGMass()/GeV,
 				  lambda->GetPDGMass()/GeV,
 				  0.0, p_lambda, 0.0,
 				  scatDistFlag);
-    
+
     double mom[3];
 
     /* scattered lambda */
@@ -7769,11 +7790,11 @@ bool CFTPrimaryGeneratorAction::LambdaP_Scattering(G4Event* anEvent, G4ThreeVect
     G4ThreeVector momentumScatLambda( mom[1], mom[2], mom[0]);
     momentumScatLambda.rotateY(ThetaLambda*deg);
     momentumScatLambda.rotateZ(PhiLambda*deg);
-    
+
     double ThetaScatLambdaCM, PhiScatLambdaCM;
     ThetaScatLambdaCM = LambdaScat.GetThetaCM(1);
     PhiScatLambdaCM   = LambdaScat.GetPhiCM(1);
-    
+
     /*
       G4cout << "ScatLambda (" << momentumScatLambda.x() << ", "
       << momentumScatLambda.y() << ", " << momentumScatLambda.z() << ") "
@@ -7793,19 +7814,19 @@ bool CFTPrimaryGeneratorAction::LambdaP_Scattering(G4Event* anEvent, G4ThreeVect
     */
     //G4cout << "ThetaPi : " << ThetaPi  << ", "
     //<< "PhiPi : " << PhiPi  << G4endl;
-    
-    
+
+
     //if (1) {
     /*
       G4cout << "Flight length = " << flength/cm << G4endl;
       G4cout << "Lambda (" << momentumLambda.x() << ", "
       << momentumLambda.y() << ", " << momentumLambda.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatLambda (" << momentumScatLambda.x() << ", "
       << momentumScatLambda.y() << ", " << momentumScatLambda.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatProton (" << momentumScatProton.x() << ", "
       << momentumScatProton.y() << ", " << momentumScatProton.z() << ") "
       << G4endl;
@@ -7829,7 +7850,7 @@ bool CFTPrimaryGeneratorAction::LambdaP_Scattering(G4Event* anEvent, G4ThreeVect
     //anaMan_->SetBeamMomentum(beammom);
 
 
-    /*scatt lambda*/    
+    /*scatt lambda*/
     G4ThreeVector gloMomLambda = geomMan.Local2GlobalDir(TgtId, momentumLambda);
     particleGun->SetParticleDefinition(lambda);
     G4ThreeVector gloMomScatLambda = geomMan.Local2GlobalDir(TgtId, momentumScatLambda);
@@ -7838,7 +7859,7 @@ bool CFTPrimaryGeneratorAction::LambdaP_Scattering(G4Event* anEvent, G4ThreeVect
     particleGun->SetParticlePosition(globalScatPos);
     particleGun->GeneratePrimaryVertex(anEvent);
 
-    /*scatt proton*/    
+    /*scatt proton*/
     particleGun->SetParticleDefinition(scatParticle);
     G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
     particleGun->SetParticleMomentumDirection(gloMomScatPart);
@@ -7883,7 +7904,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
   Kinema3Resonance Sigma;
   int DistFlag=2; // (pi+, K+)
 
-  Sigma = Kinema3Resonance(piPlus->GetPDGMass()/GeV, 
+  Sigma = Kinema3Resonance(piPlus->GetPDGMass()/GeV,
 			   proton->GetPDGMass()/GeV,
 			   0.0 , mass_sigma,
 			   kPlus->GetPDGMass()/GeV,
@@ -7921,7 +7942,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
   G4ThreeVector momentumBeam( 0., 0., -beammom);
 
 
-  if (!(ThetaK>0.&&ThetaK<50.)) 
+  if (!(ThetaK>0.&&ThetaK<50.))
     return;
 
 
@@ -7932,8 +7953,8 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
   primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
   primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
   primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-  primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-					       primary_vertex_y, 
+  primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+					       primary_vertex_y,
 					       primary_vertex_z));
   if (primaryTgtType != 0)
     return;
@@ -7943,7 +7964,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   /* Sigma-p scatt */
   //G4double flength=20.*mm;
   G4double ctau=24.04; /*mm*/
@@ -7983,10 +8004,10 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 
 #if 0
     std::cout << "------" << std::endl;
-    std::cout << "MomSigma ( " << momentumSigma.x() << ", "  
+    std::cout << "MomSigma ( " << momentumSigma.x() << ", "
 	      << momentumSigma.y() << ", " << momentumSigma.z()
 	      << ")" << std::endl;
-    std::cout << "LocalPos ( " << localSigmaPos.x() << ", "  
+    std::cout << "LocalPos ( " << localSigmaPos.x() << ", "
 	      << localSigmaPos.y() << ", " << localSigmaPos.z()
 	      << ")" << std::endl;
     {
@@ -8014,8 +8035,8 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
       E_sigma = sqrt(p_sigma*p_sigma + m_sigma*m_sigma);
     }
     /*
-    G4cout << "Length : " << totalx << ", p = " << p_sigma*1000. 
-	   << " MeV/c, Ekin = "	   << (E_sigma-m_sigma)*1000. 
+    G4cout << "Length : " << totalx << ", p = " << p_sigma*1000.
+	   << " MeV/c, Ekin = "	   << (E_sigma-m_sigma)*1000.
 	   << " MeV" << G4endl;
     */
     if (fabs(p_sigma)<0.000001) {
@@ -8040,11 +8061,11 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
       G4cout << "Sigma (" << momentumSigma.x() << ", "
       << momentumSigma.y() << ", " << momentumSigma.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatSigma (" << momentumScatSigma.x() << ", "
       << momentumScatSigma.y() << ", " << momentumScatSigma.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatProton (" << momentumScatProton.x() << ", "
       << momentumScatProton.y() << ", " << momentumScatProton.z() << ") "
       << G4endl;
@@ -8070,7 +8091,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 
       //neutron scattering
       Kinema3Resonance SigmaDecay;
-      SigmaDecay = Kinema3Resonance(mass_sigma, 
+      SigmaDecay = Kinema3Resonance(mass_sigma,
 				    0.0,
 				    0.0 , decayNucl->GetPDGMass()/GeV,
 				    decayPi->GetPDGMass()/GeV,
@@ -8085,7 +8106,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
       G4ThreeVector momentumDecayN(mom[1], mom[2], mom[0]);
       //double ThetaDecayN = SigmaDecay.GetTheta(4);
       //double PhiDecayN = SigmaDecay.GetPhi(4);
-      
+
       /* pi */
       double Energy_decayPi = SigmaDecay.GetEnergy(5);
       double momentum_decayPi = SigmaDecay.GetMomentum(5);
@@ -8093,7 +8114,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
       G4ThreeVector momentumDecayPi( mom[1], mom[2], mom[0]);
       //double ThetaDecayPi = SigmaDecay.GetTheta(5);
       //double PhiDecayPi = SigmaDecay.GetPhi(5);
-      
+
       // Neucleon momentum at beam frame
       momentumDecayN.rotateY(ThetaSig*deg);
       momentumDecayN.rotateZ(PhiSig*deg);
@@ -8103,32 +8124,32 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
       momentumDecayPi.rotateZ(PhiSig*deg);
 
       /*
-      std::cout << "SigmaMom = ( " << momentumSigma.x() << ", " 
+      std::cout << "SigmaMom = ( " << momentumSigma.x() << ", "
 		<< momentumSigma.y() << ", " << momentumSigma.z()
 		<< ")" << std::endl;
-      std::cout << "DecayN = ( " << momentumDecayN.x() << ", " 
+      std::cout << "DecayN = ( " << momentumDecayN.x() << ", "
 		<< momentumDecayN.y() << ", " << momentumDecayN.z()
 		<< ")" << std::endl;
-      std::cout << "DecayPi = ( " << momentumDecayPi.x() << ", " 
+      std::cout << "DecayPi = ( " << momentumDecayPi.x() << ", "
 		<< momentumDecayPi.y() << ", " << momentumDecayPi.z()
 		<< ")" << std::endl;
 
-      std::cout << "Delta = ( " 
+      std::cout << "Delta = ( "
 		<< momentumSigma.x()-momentumDecayN.x()-momentumDecayPi.x()
-		<< ", " 
-		<< momentumSigma.y()-momentumDecayN.y()-momentumDecayPi.y() 
-		<< ", " 
+		<< ", "
+		<< momentumSigma.y()-momentumDecayN.y()-momentumDecayPi.y()
+		<< ", "
 		<< momentumSigma.z()-momentumDecayN.z()-momentumDecayPi.z()
 		<< ")" << std::endl;
       */
-      double ThetaDecayNatBeamFrame, PhiDecayNatBeamFrame; 
-      calcThetaPhi(momentumDecayN, 
-		   &ThetaDecayNatBeamFrame, 
+      double ThetaDecayNatBeamFrame, PhiDecayNatBeamFrame;
+      calcThetaPhi(momentumDecayN,
+		   &ThetaDecayNatBeamFrame,
 		   &PhiDecayNatBeamFrame);
 
-      double ThetaDecayPiatBeamFrame, PhiDecayPiatBeamFrame; 
-      calcThetaPhi(momentumDecayPi, 
-		   &ThetaDecayPiatBeamFrame, 
+      double ThetaDecayPiatBeamFrame, PhiDecayPiatBeamFrame;
+      calcThetaPhi(momentumDecayPi,
+		   &ThetaDecayPiatBeamFrame,
 		   &PhiDecayPiatBeamFrame);
       /*
       std::cout << "ThetaDecayNatBeamFrame: " << ThetaDecayNatBeamFrame
@@ -8153,22 +8174,22 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
       if (decayMode==0) {
 	/* n-p scatt */
 	G4double neutron_react_rate = 0.0001274; // 1/mm /* 30mb and LH2 target*/
-	
+
 	double Ekin_n[30] = {10., 20., 30., 40., 50., 60., 70., 80., 90., 100.,
 			     110., 120., 130., 140., 150., 160., 170., 180., 190., 200.,
 		   210., 220., 230., 240., 250., 260., 270., 280., 290., 300.};
-	
+
 	double np_cs_table[30] = { 951.827, 488.477, 312.839, 223.243, 170.507,
 				   136.696, 113.728,  97.449,  85.517,  76.527,
 				   69.593,  64.133,  59.756,  56.191,  53.244,
 				   50.779,  48.691,  46.905,  45.364,  44.022,
 				   42.844,  41.803,  40.876,  40.046,  39.298,
 				   38.620,  38.002,  37.436,  36.915,  36.432};
-	
+
 	double Ekin = (sqrt(momentum_decayN*momentum_decayN+m_neutron*m_neutron)
 		       -m_neutron)*1000. ;// MeV
-	
-	
+
+
 	int index_Ekin=-1;
 	double np_cs;
 	for (int i=0; i<30; i++) {
@@ -8196,36 +8217,36 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 	    }
 	  }
 	}
-	
+
 	if (index_Ekin<0 || index_Ekin>=30) {
 	  fprintf(stderr, "PrimaryGeneratorAction::GeneratePiKSigmaScat2 invalid index_Ekin : %d", index_Ekin);
 	  exit(-1);
 	}
 	neutron_react_rate *= np_cs/30.;
-	
+
 	G4double dy = 0.5*mm; //mm
 	G4double totaly=0.0;  //mm
-	
+
 	G4ThreeVector localNeutronPos = localDecayPos;
 	int flagTgtType2 = -1;
-	
+
 	int nIte=0;
 	while (1) {
 	  flagTgtType2 = -1;
 	  totaly += dy;
 	  localNeutronPos += momentumDecayN*dy/momentumDecayN.mag();
-	  
+
 	  flagNeutronScattering=false;
-	  
+
 	  flagTgtType2 = getTargetFlag(localNeutronPos);
-	  
+
 	  if (flagTgtType2 == 0 || flagTgtType2 == 1) {
 	    flagNeutronScattering  = scatteringCheck(neutron_react_rate, dy/mm);
 	  }
-	  
+
 	  if (flagNeutronScattering)
 	    break;
-	  
+
 	  nIte++;
 	  if (nIte>1000)
 	    break;
@@ -8240,7 +8261,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 				0.2718, 0.2903, 0.298, 0.3110, 0.327,
 				0.3406, 0.3529, 0.3710, 0.3850, 0.401};
 
-	double pip_cs_table[20] = { 17.6, 26.09, 37.3, 50.3, 71.4, 
+	double pip_cs_table[20] = { 17.6, 26.09, 37.3, 50.3, 71.4,
 				   91.0, 122., 139.6, 167.0, 189.0,
 				   187.0, 202.9, 194.2, 178.3, 156.8,
 				   134.81, 125.6, 96.2, 85.2, 73.8};
@@ -8272,7 +8293,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 	    }
 	  }
 	}
-	
+
 	if (index_p<0 || index_p>=20) {
 	  fprintf(stderr, "PrimaryGeneratorAction::GeneratePiKSigmaScat2 invalid index_p : %d", index_p);
 	  exit(-1);
@@ -8281,38 +8302,38 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 
 	G4double dz = 0.5*mm; //mm
 	G4double totalz=0.0;  //mm
-	
+
 	G4double ctau_pi=7804.5; /*mm*/
 	G4double p_pi = momentumDecayPi.mag();
 	G4double m_pi = piPlus->GetPDGMass()/GeV;
-	
+
 	G4ThreeVector localPionPos = localDecayPos;
 	int flagTgtType3 = -1;
-	
+
 	G4bool flagPionDecay=false;
-	
+
 	nIte=0;
 	while (1) {
 	  flagTgtType3 = -1;
 	  totalz += dz;
 	  localPionPos += momentumDecayPi*dz/momentumDecayPi.mag();
-	  
+
 	  flagPionScattering=false;
 	  flagPionDecay=false;
-	  
+
 	  flagTgtType3 = getTargetFlag(localPionPos);
-	  
+
 	  if (flagTgtType3 == 0 || flagTgtType3 == 1) {
 	    flagPionScattering  = scatteringCheck(pion_react_rate, dz/mm);
 	  }
-	  
+
 	  if (flagPionScattering)
 	    break;
-	  
+
 	  flagPionDecay = decayCheck(ctau_pi, p_pi, m_pi, dz/mm );
 	  if (flagPionDecay)
 	    break;
-	  
+
 	  nIte++;
 	  if (nIte>1000)
 	    break;
@@ -8331,24 +8352,24 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 	  } else {
 	    return;
 	  }
-	  //std::cout << scatParticle->GetPDGMass()/GeV << std::endl; 
+	  //std::cout << scatParticle->GetPDGMass()/GeV << std::endl;
 	  Kinema3Resonance NNScat;
-	  NNScat = Kinema3Resonance(decayNucl->GetPDGMass()/GeV, 
+	  NNScat = Kinema3Resonance(decayNucl->GetPDGMass()/GeV,
 				    scatParticle->GetPDGMass()/GeV,
 				    0.0 , decayNucl->GetPDGMass()/GeV,
 				    scatParticle->GetPDGMass()/GeV,
 				    decayNucl->GetPDGMass()/GeV,
 				    0.0, momentum_decayN, 0.0, scatDistFlag);
-	  
+
 	  /* scattered Necleon */
 	  G4double Energy_scatN = NNScat.GetEnergy(4);
 	  //G4double momentum_scatN = NNScat.GetMomentum(4);
 	  NNScat.GetMomentum(4,mom);
 	  G4ThreeVector momentumScatN( mom[1], mom[2], mom[0]);
-	  
+
 	  momentumScatN.rotateY(ThetaDecayNatBeamFrame*deg);
 	  momentumScatN.rotateZ(PhiDecayNatBeamFrame*deg);
-	  
+
 	  /* scattered Proton or Deuteron*/
 	  G4double Energy_scatPart = NNScat.GetEnergy(5);
 	  //G4double momentum_scatPart = NNScat.GetMomentum(5);
@@ -8356,36 +8377,36 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 	  G4ThreeVector momentumScatPart(mom[1], mom[2], mom[0]);
 	  momentumScatPart.rotateY(ThetaDecayNatBeamFrame*deg);
 	  momentumScatPart.rotateZ(PhiDecayNatBeamFrame*deg);
-	  
+
 	  /*
-	    std::cout << "DecayN = ( " << momentumDecayN.x() << ", " 
+	    std::cout << "DecayN = ( " << momentumDecayN.x() << ", "
 	    << momentumDecayN.y() << ", " << momentumDecayN.z()
 	    << ")" << std::endl;
-	    
-	    std::cout << "ScatN = ( " << momentumScatN.x() << ", " 
+
+	    std::cout << "ScatN = ( " << momentumScatN.x() << ", "
 	    << momentumScatN.y() << ", " << momentumScatN.z()
 	    << ")" << std::endl;
-	    
-	    std::cout << "ScatPart = ( " << momentumScatPart.x() << ", " 
+
+	    std::cout << "ScatPart = ( " << momentumScatPart.x() << ", "
 	    << momentumScatPart.y() << ", " << momentumScatPart.z()
 	    << ")" << std::endl;
-	    
-	    std::cout << "Delta = ( " 
+
+	    std::cout << "Delta = ( "
 	    << momentumDecayN.x()-momentumScatN.x()-momentumScatPart.x()
-	    << ", " 
+	    << ", "
 	    << momentumDecayN.y()-momentumScatN.y()-momentumScatPart.y()
-	    << ", " 
+	    << ", "
 	    << momentumDecayN.z()-momentumScatN.z()-momentumScatPart.z()
 	    << ")" << std::endl;
 	  */
-	  
+
 	  particleGun->SetParticleDefinition(kPlus);
 	  G4ThreeVector gloMomKPlus = geomMan.Local2GlobalDir(TgtId, momentumKPlus);
 	  particleGun->SetParticleMomentumDirection(gloMomKPlus);
 	  particleGun->SetParticleEnergy((Energy_k - kPlus->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalVertexPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
+
 	  /* beam */
 	  particleGun->SetParticleDefinition(spiPlus);
 	  G4ThreeVector gloMomBeam = geomMan.Local2GlobalDir(TgtId, momentumBeam);
@@ -8393,8 +8414,8 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 	  particleGun->SetParticleEnergy((Energy_beam - spiPlus->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalVertexPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
-	  /*sigma*/    
+
+	  /*sigma*/
 	  particleGun->SetParticleDefinition(ssigma);
 	  G4ThreeVector gloMomSigma = geomMan.Local2GlobalDir(TgtId, momentumSigma);
 	  particleGun->SetParticleMomentumDirection(-gloMomSigma);
@@ -8402,7 +8423,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 	  particleGun->SetParticleEnergy((Energy_sig - sigma->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalDecayPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
+
 	  /* decay pi */
 	  particleGun->SetParticleDefinition(decayPi);
 	  G4ThreeVector gloMomDecayPi = geomMan.Local2GlobalDir(TgtId, momentumDecayPi);
@@ -8410,24 +8431,24 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 	  particleGun->SetParticleEnergy((Energy_decayPi - decayPi->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalDecayPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
-	  /*scat proton*/    
+
+	  /*scat proton*/
 	  particleGun->SetParticleDefinition(decayNucl);
 	  G4ThreeVector gloMomentumScatN = geomMan.Local2GlobalDir(TgtId, momentumScatN);
 	  particleGun->SetParticleMomentumDirection(gloMomentumScatN);
 	  particleGun->SetParticleEnergy((Energy_scatN - decayNucl->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalNNScatPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
-	  /*scatt proton*/    
+
+	  /*scatt proton*/
 	  particleGun->SetParticleDefinition(scatParticle);
 	  G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
 	  particleGun->SetParticleMomentumDirection(gloMomScatPart);
 	  particleGun->SetParticleEnergy((Energy_scatPart - scatParticle->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalNNScatPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
-	  
+
+
 	  anaMan_->SetPrimaryVertex(localVertexPos);
 	  anaMan_->SetHypBeamMomentum(momentumSigma);
 	  anaMan_->SetScatMesonMomentum(momentumKPlus);
@@ -8439,13 +8460,13 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 	  anaMan_->SetNNScatPos(localNNScatPos);
 	  anaMan_->SetDecayFlag(decayMode);
 	  anaMan_->SetNNScatFlag();
-	  anaMan_->SetNNScatTarget(flagTgtType2);	
+	  anaMan_->SetNNScatTarget(flagTgtType2);
 	  anaMan_->SetScatProtonMomentum(momentumScatPart);
 	  anaMan_->SetFlightLengthInTarget(dxInH, dxInD);
 	  anaMan_->SetDecayPiMomentum(momentumDecayPi);
 	  anaMan_->SetDecayNucleonMomentum(momentumDecayN);
 	  anaMan_->SetBeamMomentum(beammom);
-	  
+
 	  return;
 	}
 
@@ -8462,24 +8483,24 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 	  } else {
 	    return;
 	  }
-	  //std::cout << scatParticle->GetPDGMass()/GeV << std::endl; 
+	  //std::cout << scatParticle->GetPDGMass()/GeV << std::endl;
 	  Kinema3Resonance PiNScat;
-	  PiNScat = Kinema3Resonance(decayPi->GetPDGMass()/GeV, 
+	  PiNScat = Kinema3Resonance(decayPi->GetPDGMass()/GeV,
 				     scatParticle->GetPDGMass()/GeV,
 				     0.0 , decayPi->GetPDGMass()/GeV,
 				     scatParticle->GetPDGMass()/GeV,
 				     decayPi->GetPDGMass()/GeV,
 				     0.0, momentum_decayPi, 0.0, scatDistFlag);
-	  
+
 	  /* scattered pion */
 	  G4double Energy_scatPi = PiNScat.GetEnergy(4);
 	  //G4double momentum_scatPi = PiNScat.GetMomentum(4);
 	  PiNScat.GetMomentum(4,mom);
 	  G4ThreeVector momentumScatPi( mom[1], mom[2], mom[0]);
-	  
+
 	  momentumScatPi.rotateY(ThetaDecayPiatBeamFrame*deg);
 	  momentumScatPi.rotateZ(PhiDecayPiatBeamFrame*deg);
-	  
+
 	  /* scattered Proton or Deuteron*/
 	  G4double Energy_scatPart = PiNScat.GetEnergy(5);
 	  //G4double momentum_scatPart = PiNScat.GetMomentum(5);
@@ -8487,36 +8508,36 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 	  G4ThreeVector momentumScatPart(mom[1], mom[2], mom[0]);
 	  momentumScatPart.rotateY(ThetaDecayPiatBeamFrame*deg);
 	  momentumScatPart.rotateZ(PhiDecayPiatBeamFrame*deg);
-	  
+
 	  /*
-	    std::cout << "DecayPi = ( " << momentumDecayPi.x() << ", " 
+	    std::cout << "DecayPi = ( " << momentumDecayPi.x() << ", "
 	    << momentumDecayPi.y() << ", " << momentumDecayPi.z()
 	    << ")" << std::endl;
-	    
-	    std::cout << "ScatPi = ( " << momentumScatPi.x() << ", " 
+
+	    std::cout << "ScatPi = ( " << momentumScatPi.x() << ", "
 	    << momentumScatPi.y() << ", " << momentumScatPi.z()
 	    << ")" << std::endl;
-	    
-	    std::cout << "ScatPart = ( " << momentumScatPart.x() << ", " 
+
+	    std::cout << "ScatPart = ( " << momentumScatPart.x() << ", "
 	    << momentumScatPart.y() << ", " << momentumScatPart.z()
 	    << ")" << std::endl;
-	    
-	    std::cout << "Delta = ( " 
+
+	    std::cout << "Delta = ( "
 	    << momentumDecayPi.x()-momentumScatPi.x()-momentumScatPart.x()
-	    << ", " 
+	    << ", "
 	    << momentumDecayPi.y()-momentumScatPi.y()-momentumScatPart.y()
-	    << ", " 
+	    << ", "
 	    << momentumDecayPi.z()-momentumScatPi.z()-momentumScatPart.z()
 	    << ")" << std::endl;
 	  */
-	  
+
 	  particleGun->SetParticleDefinition(kPlus);
 	  G4ThreeVector gloMomKPlus = geomMan.Local2GlobalDir(TgtId, momentumKPlus);
 	  particleGun->SetParticleMomentumDirection(gloMomKPlus);
 	  particleGun->SetParticleEnergy((Energy_k - kPlus->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalVertexPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
+
 	  /* beam */
 	  particleGun->SetParticleDefinition(spiPlus);
 	  G4ThreeVector gloMomBeam = geomMan.Local2GlobalDir(TgtId, momentumBeam);
@@ -8524,8 +8545,8 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 	  particleGun->SetParticleEnergy((Energy_beam - spiPlus->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalVertexPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
-	  /*sigma*/    
+
+	  /*sigma*/
 	  particleGun->SetParticleDefinition(ssigma);
 	  G4ThreeVector gloMomSigma = geomMan.Local2GlobalDir(TgtId, momentumSigma);
 	  particleGun->SetParticleMomentumDirection(-gloMomSigma);
@@ -8533,7 +8554,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 	  particleGun->SetParticleEnergy((Energy_sig - sigma->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalDecayPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
+
 	  /* decay neucleon */
 	  particleGun->SetParticleDefinition(decayNucl);
 	  G4ThreeVector gloMomDecayN = geomMan.Local2GlobalDir(TgtId, momentumDecayN);
@@ -8541,24 +8562,24 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 	  particleGun->SetParticleEnergy((Energy_decayN - decayNucl->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalDecayPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
-	  /*scat pi*/    
+
+	  /*scat pi*/
 	  particleGun->SetParticleDefinition(decayPi);
 	  G4ThreeVector gloMomentumScatPi = geomMan.Local2GlobalDir(TgtId, momentumScatPi);
 	  particleGun->SetParticleMomentumDirection(gloMomentumScatPi);
 	  particleGun->SetParticleEnergy((Energy_scatPi - decayPi->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalPiNScatPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
-	  /*scatt proton*/    
+
+	  /*scatt proton*/
 	  particleGun->SetParticleDefinition(scatParticle);
 	  G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
 	  particleGun->SetParticleMomentumDirection(gloMomScatPart);
 	  particleGun->SetParticleEnergy((Energy_scatPart - scatParticle->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalPiNScatPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
-	  
+
+
 	  anaMan_->SetPrimaryVertex(localVertexPos);
 	  anaMan_->SetHypBeamMomentum(momentumSigma);
 	  anaMan_->SetScatMesonMomentum(momentumKPlus);
@@ -8570,29 +8591,29 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 	  anaMan_->SetPiNScatPos(localPiNScatPos);
 	  anaMan_->SetDecayFlag(decayMode);
 	  anaMan_->SetPiNScatFlag();
-	  anaMan_->SetPiNScatTarget(flagTgtType3);	
+	  anaMan_->SetPiNScatTarget(flagTgtType3);
 	  anaMan_->SetScatProtonMomentum(momentumScatPart);
 	  anaMan_->SetFlightLengthInTarget(dxInH, dxInD);
 	  //anaMan_->SetDecayPiMomentum(momentumDecayPi);
 	  anaMan_->SetDecayPiMomentum(momentumScatPi);
 	  anaMan_->SetDecayNucleonMomentum(momentumDecayN);
 	  anaMan_->SetBeamMomentum(beammom);
-	  
+
 	  return;
 	}
       } else if (decayMode==1) {
 
 	G4double proton_react_rate = 0.0001274; // 1/mm /* 30mb and LH2 target*/
-	
+
 	double Ekin_p[14] = {18.2, 19.8, 25.63, 30.14, 39.4, 68.3, 95., 98., 118., 142.,
 			     147., 172., 250., 312.};
-	
+
 	double pp_cs_table[14] = { 351.8, 314.1, 238.7, 188.4, 138.2, 81.6,
 				   56.5, 56.5, 52.7, 52.7, 51.5, 50.2, 50.2, 46.4};
-	
+
 	double Ekin = (sqrt(momentum_decayN*momentum_decayN+m_proton*m_proton)
 		       -m_proton)*1000. ;// MeV
-	
+
 	int index_Ekin=-1;
 	double pp_cs;
 	for (int i=0; i<14; i++) {
@@ -8620,36 +8641,36 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 	    }
 	  }
 	}
-	
+
 	if (index_Ekin<0 || index_Ekin>=14) {
 	  fprintf(stderr, "PrimaryGeneratorAction::GeneratePiKSigmaScat2 invalid index_Ekin : %d", index_Ekin);
 	  exit(-1);
 	}
 	proton_react_rate *= pp_cs/30.;
-	
+
 	G4double dy = 0.5*mm; //mm
 	G4double totaly=0.0;  //mm
-	
+
 	G4ThreeVector localProtonPos = localDecayPos;
 	int flagTgtType2 = -1;
-	
+
 	int nIte=0;
 	while (1) {
 	  flagTgtType2 = -1;
 	  totaly += dy;
 	  localProtonPos += momentumDecayN*dy/momentumDecayN.mag();
-	  
+
 	  flagProtonScattering=false;
-	  
+
 	  flagTgtType2 = getTargetFlag(localProtonPos);
-	  
+
 	  if (flagTgtType2 == 0 || flagTgtType2 == 1) {
 	    flagProtonScattering  = scatteringCheck(proton_react_rate, dy/mm);
 	  }
-	  
+
 	  if (flagProtonScattering)
 	    break;
-	  
+
 	  nIte++;
 	  if (nIte>1000)
 	    break;
@@ -8668,24 +8689,24 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 	  } else {
 	    return;
 	  }
-	  //std::cout << scatParticle->GetPDGMass()/GeV << std::endl; 
+	  //std::cout << scatParticle->GetPDGMass()/GeV << std::endl;
 	  Kinema3Resonance NNScat;
-	  NNScat = Kinema3Resonance(decayNucl->GetPDGMass()/GeV, 
+	  NNScat = Kinema3Resonance(decayNucl->GetPDGMass()/GeV,
 				    scatParticle->GetPDGMass()/GeV,
 				    0.0 , decayNucl->GetPDGMass()/GeV,
 				    scatParticle->GetPDGMass()/GeV,
 				    decayNucl->GetPDGMass()/GeV,
 				    0.0, momentum_decayN, 0.0, scatDistFlag);
-	  
+
 	  /* scattered Necleon */
 	  G4double Energy_scatN = NNScat.GetEnergy(4);
 	  //G4double momentum_scatN = NNScat.GetMomentum(4);
 	  NNScat.GetMomentum(4,mom);
 	  G4ThreeVector momentumScatN( mom[1], mom[2], mom[0]);
-	  
+
 	  momentumScatN.rotateY(ThetaDecayNatBeamFrame*deg);
 	  momentumScatN.rotateZ(PhiDecayNatBeamFrame*deg);
-	  
+
 	  /* scattered Proton or Deuteron*/
 	  G4double Energy_scatPart = NNScat.GetEnergy(5);
 	  //G4double momentum_scatPart = NNScat.GetMomentum(5);
@@ -8693,36 +8714,36 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 	  G4ThreeVector momentumScatPart(mom[1], mom[2], mom[0]);
 	  momentumScatPart.rotateY(ThetaDecayNatBeamFrame*deg);
 	  momentumScatPart.rotateZ(PhiDecayNatBeamFrame*deg);
-	  
+
 	  /*
-	    std::cout << "DecayN = ( " << momentumDecayN.x() << ", " 
+	    std::cout << "DecayN = ( " << momentumDecayN.x() << ", "
 	    << momentumDecayN.y() << ", " << momentumDecayN.z()
 	    << ")" << std::endl;
-	    
-	    std::cout << "ScatN = ( " << momentumScatN.x() << ", " 
+
+	    std::cout << "ScatN = ( " << momentumScatN.x() << ", "
 	    << momentumScatN.y() << ", " << momentumScatN.z()
 	    << ")" << std::endl;
-	    
-	    std::cout << "ScatPart = ( " << momentumScatPart.x() << ", " 
+
+	    std::cout << "ScatPart = ( " << momentumScatPart.x() << ", "
 	    << momentumScatPart.y() << ", " << momentumScatPart.z()
 	    << ")" << std::endl;
-	    
-	    std::cout << "Delta = ( " 
+
+	    std::cout << "Delta = ( "
 	    << momentumDecayN.x()-momentumScatN.x()-momentumScatPart.x()
-	    << ", " 
+	    << ", "
 	    << momentumDecayN.y()-momentumScatN.y()-momentumScatPart.y()
-	    << ", " 
+	    << ", "
 	    << momentumDecayN.z()-momentumScatN.z()-momentumScatPart.z()
 	    << ")" << std::endl;
 	  */
-	  
+
 	  particleGun->SetParticleDefinition(kPlus);
 	  G4ThreeVector gloMomKPlus = geomMan.Local2GlobalDir(TgtId, momentumKPlus);
 	  particleGun->SetParticleMomentumDirection(gloMomKPlus);
 	  particleGun->SetParticleEnergy((Energy_k - kPlus->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalVertexPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
+
 	  /* beam */
 	  particleGun->SetParticleDefinition(spiPlus);
 	  G4ThreeVector gloMomBeam = geomMan.Local2GlobalDir(TgtId, momentumBeam);
@@ -8730,8 +8751,8 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 	  particleGun->SetParticleEnergy((Energy_beam - spiPlus->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalVertexPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
-	  /*sigma*/    
+
+	  /*sigma*/
 	  particleGun->SetParticleDefinition(ssigma);
 	  G4ThreeVector gloMomSigma = geomMan.Local2GlobalDir(TgtId, momentumSigma);
 	  particleGun->SetParticleMomentumDirection(-gloMomSigma);
@@ -8739,7 +8760,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 	  particleGun->SetParticleEnergy((Energy_sig - sigma->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalDecayPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
+
 	  /* decay pi */
 	  particleGun->SetParticleDefinition(decayPi);
 	  G4ThreeVector gloMomDecayPi = geomMan.Local2GlobalDir(TgtId, momentumDecayPi);
@@ -8747,8 +8768,8 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 	  particleGun->SetParticleEnergy((Energy_decayPi - decayPi->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalDecayPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
-	  /*scat proton*/    
+
+	  /*scat proton*/
 	  //G4cout << "pp scat" << G4endl;
 
 	  particleGun->SetParticleDefinition(decayNucl);
@@ -8757,16 +8778,16 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 	  particleGun->SetParticleEnergy((Energy_scatN - decayNucl->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalNNScatPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
-	  /*scatt proton*/    
+
+	  /*scatt proton*/
 	  particleGun->SetParticleDefinition(scatParticle);
 	  G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
 	  particleGun->SetParticleMomentumDirection(gloMomScatPart);
 	  particleGun->SetParticleEnergy((Energy_scatPart - scatParticle->GetPDGMass()/GeV)*GeV);
 	  particleGun->SetParticlePosition(globalNNScatPos);
 	  particleGun->GeneratePrimaryVertex(anEvent);
-	  
-	  
+
+
 	  anaMan_->SetPrimaryVertex(localVertexPos);
 	  anaMan_->SetHypBeamMomentum(momentumSigma);
 	  anaMan_->SetScatMesonMomentum(momentumKPlus);
@@ -8778,13 +8799,13 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
 	  anaMan_->SetNNScatPos(localNNScatPos);
 	  anaMan_->SetDecayFlag(decayMode);
 	  anaMan_->SetNNScatFlag();
-	  anaMan_->SetNNScatTarget(flagTgtType2);	
+	  anaMan_->SetNNScatTarget(flagTgtType2);
 	  anaMan_->SetScatProtonMomentum(momentumScatPart);
 	  anaMan_->SetFlightLengthInTarget(dxInH, dxInD);
 	  anaMan_->SetDecayPiMomentum(momentumDecayPi);
 	  anaMan_->SetDecayNucleonMomentum(momentumDecayN);
 	  anaMan_->SetBeamMomentum(beammom);
-	  
+
 	  return;
 	}
 
@@ -8818,7 +8839,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
     particleGun->SetParticleEnergy((Energy_k - kPlus->GetPDGMass()/GeV)*GeV);
     particleGun->SetParticlePosition(globalVertexPos);
     particleGun->GeneratePrimaryVertex(anEvent);
-    
+
     /* beam */
     particleGun->SetParticleDefinition(spiPlus);
     G4ThreeVector gloMomBeam = geomMan.Local2GlobalDir(TgtId, momentumBeam);
@@ -8826,8 +8847,8 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
     particleGun->SetParticleEnergy((Energy_beam - spiPlus->GetPDGMass()/GeV)*GeV);
     particleGun->SetParticlePosition(globalVertexPos);
     particleGun->GeneratePrimaryVertex(anEvent);
-    
-    /*sigma*/    
+
+    /*sigma*/
     particleGun->SetParticleDefinition(ssigma);
     G4ThreeVector gloMomSigma = geomMan.Local2GlobalDir(TgtId, momentumSigma);
     particleGun->SetParticleMomentumDirection(-gloMomSigma);
@@ -8835,8 +8856,8 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
     particleGun->SetParticleEnergy((Energy_sig - sigma->GetPDGMass()/GeV)*GeV);
     particleGun->SetParticlePosition(globalDecayPos);
     particleGun->GeneratePrimaryVertex(anEvent);
-    
-    /*decaying sigma*/    
+
+    /*decaying sigma*/
     particleGun->SetParticleDefinition(usigma);
     particleGun->SetParticleMomentumDirection(gloMomSigma);
     // E_sigma is energy after energy deposit
@@ -8858,15 +8879,15 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
       return;
     }
 
-    
-    SigmaScat = Kinema3Resonance(mass_sigma, 
+
+    SigmaScat = Kinema3Resonance(mass_sigma,
 				 scatParticle->GetPDGMass()/GeV,
 				 0.0 , mass_sigma,
 				 scatParticle->GetPDGMass()/GeV,
 				 mass_sigma, 0.0, p_sigma, 0.0,
 				 scatDistFlag);
 
-    
+
     /* scattered Sigma */
     G4double Energy_scatSigma = SigmaScat.GetEnergy(4);
     //G4double momentum_scatSigma = SigmaScat.GetMomentum(4);
@@ -8874,11 +8895,11 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
     G4ThreeVector momentumScatSigma( mom[1], mom[2], mom[0]);
     momentumScatSigma.rotateY(ThetaSig*deg);
     momentumScatSigma.rotateZ(PhiSig*deg);
-    
+
     double ThetaScatSigCM, PhiScatSigCM;
     ThetaScatSigCM = SigmaScat.GetThetaCM(1);
     PhiScatSigCM = SigmaScat.GetPhiCM(1);
-    
+
     /*
       G4cout << "ScatSigma (" << momentumScatSigma.x() << ", "
       << momentumScatSigma.y() << ", " << momentumScatSigma.z() << ") "
@@ -8898,19 +8919,19 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
     */
     //G4cout << "ThetaPi : " << ThetaPi  << ", "
     //<< "PhiPi : " << PhiPi  << G4endl;
-    
-    
+
+
     //if (1) {
     /*
       G4cout << "Flight length = " << flength/cm << G4endl;
       G4cout << "Sigma (" << momentumSigma.x() << ", "
       << momentumSigma.y() << ", " << momentumSigma.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatSigma (" << momentumScatSigma.x() << ", "
       << momentumScatSigma.y() << ", " << momentumScatSigma.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatProton (" << momentumScatProton.x() << ", "
       << momentumScatProton.y() << ", " << momentumScatProton.z() << ") "
       << G4endl;
@@ -8948,7 +8969,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
     particleGun->SetParticlePosition(globalVertexPos);
     particleGun->GeneratePrimaryVertex(anEvent);
 
-    /*sigma*/    
+    /*sigma*/
     particleGun->SetParticleDefinition(ssigma);
     G4ThreeVector gloMomSigma = geomMan.Local2GlobalDir(TgtId, momentumSigma);
     particleGun->SetParticleMomentumDirection(-gloMomSigma);
@@ -8957,7 +8978,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
     particleGun->SetParticlePosition(globalScatPos);
     particleGun->GeneratePrimaryVertex(anEvent);
 
-    /*scatt sigma*/    
+    /*scatt sigma*/
     particleGun->SetParticleDefinition(sigma);
     G4ThreeVector gloMomScatSigma = geomMan.Local2GlobalDir(TgtId, momentumScatSigma);
     particleGun->SetParticleMomentumDirection(gloMomScatSigma);
@@ -8965,7 +8986,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaPlusScat2(G4Event* anEvent)
     particleGun->SetParticlePosition(globalScatPos);
     particleGun->GeneratePrimaryVertex(anEvent);
 
-    /*scatt proton*/    
+    /*scatt proton*/
 
     particleGun->SetParticleDefinition(scatParticle);
     G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
@@ -9021,8 +9042,8 @@ void CFTPrimaryGeneratorAction::GeneratePiKBG(G4Event* anEvent)
     primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
 
@@ -9032,14 +9053,14 @@ void CFTPrimaryGeneratorAction::GeneratePiKBG(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   particleGun->SetParticleDefinition(part);
   G4ThreeVector gloMom = geomMan.Local2GlobalDir(TgtId, momentum);
   particleGun->SetParticleMomentumDirection(gloMom);
   particleGun->SetParticleEnergy((Energy - part->GetPDGMass()/GeV)*GeV);
   particleGun->SetParticlePosition(globalVertexPos);
   particleGun->GeneratePrimaryVertex(anEvent);
-  
+
   anaMan_->SetPrimaryVertex(localVertexPos);
   anaMan_->SetScatMesonMomentum(momentum);
   anaMan_->SetThetaMeson(theta);
@@ -9076,8 +9097,8 @@ void CFTPrimaryGeneratorAction::GenerateUniform(G4Event* anEvent)
     primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
   } while (primaryTgtType != 0 && primaryTgtType != 1);
 
@@ -9087,14 +9108,14 @@ void CFTPrimaryGeneratorAction::GenerateUniform(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   particleGun->SetParticleDefinition(kaonPlus);
   G4ThreeVector gloMomKPlus = geomMan.Local2GlobalDir(TgtId, momentumKaonPlus);
   particleGun->SetParticleMomentumDirection(gloMomKPlus);
   particleGun->SetParticleEnergy((Energy_k - kaonPlus->GetPDGMass()/GeV)*GeV);
   particleGun->SetParticlePosition(globalVertexPos);
   particleGun->GeneratePrimaryVertex(anEvent);
-  
+
   anaMan_->SetPrimaryVertex(localVertexPos);
   anaMan_->SetScatMesonMomentum(momentumKaonPlus);
   anaMan_->SetThetaMeson(theta);
@@ -9129,7 +9150,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
   Kinema3Resonance Sigma;
   int DistFlag=3; // 1.3GeV/c (pi-, K+)
 
-  Sigma = Kinema3Resonance(piMinus->GetPDGMass()/GeV, 
+  Sigma = Kinema3Resonance(piMinus->GetPDGMass()/GeV,
 			   proton->GetPDGMass()/GeV,
 			   0.0 , mass_sigma,
 			   kPlus->GetPDGMass()/GeV,
@@ -9167,7 +9188,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
 
 
 
-  if (!(ThetaK>0.&&ThetaK<50.)) 
+  if (!(ThetaK>0.&&ThetaK<50.))
     return;
 
   G4double primary_vertex_x, primary_vertex_y, primary_vertex_z;
@@ -9180,8 +9201,8 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
     primary_vertex_x = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_y = (G4double)RandGauss::shoot(0., 5.)*mm;
     primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-						 primary_vertex_y, 
+    primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+						 primary_vertex_y,
 						 primary_vertex_z));
     //} while (primaryTgtType != 0 && primaryTgtType != 1);
   } while (primaryTgtType != 0);
@@ -9192,18 +9213,18 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
   //primary_vertex_x = (G4double)RandGauss::shoot(0., 8.)*mm;
   //primary_vertex_y = (G4double)RandGauss::shoot(0., 8.)*mm;
   primary_vertex_z = (G4double)RandFlat::shoot(-150., 150.)*mm;
-  primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x, 
-					       primary_vertex_y, 
+  primaryTgtType = getTargetFlag(G4ThreeVector(primary_vertex_x,
+					       primary_vertex_y,
 					       primary_vertex_z));
   if (primaryTgtType != 0)
     return;
-  
+
   G4ThreeVector localVertexPos(primary_vertex_x, primary_vertex_y, primary_vertex_z);
   //Rotate to global coordinate
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   /* Sigma-p scatt */
   //G4double flength=20.*mm;
   G4double ctau=44.34; /*mm*/
@@ -9249,10 +9270,10 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
 
 #if 0
     std::cout << "------" << std::endl;
-    std::cout << "MomSigma ( " << momentumSigma.x() << ", "  
+    std::cout << "MomSigma ( " << momentumSigma.x() << ", "
 	      << momentumSigma.y() << ", " << momentumSigma.z()
 	      << ")" << std::endl;
-    std::cout << "LocalPos ( " << localSigmaPos.x() << ", "  
+    std::cout << "LocalPos ( " << localSigmaPos.x() << ", "
 	      << localSigmaPos.y() << ", " << localSigmaPos.z()
 	      << ")" << std::endl;
     {
@@ -9283,8 +9304,8 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
       E_sigma = sqrt(p_sigma*p_sigma + m_sigma*m_sigma);
     }
     /*
-    G4cout << "Length : " << totalx << ", p = " << p_sigma*1000. 
-	   << " MeV/c, Ekin = "	   << (E_sigma-m_sigma)*1000. 
+    G4cout << "Length : " << totalx << ", p = " << p_sigma*1000.
+	   << " MeV/c, Ekin = "	   << (E_sigma-m_sigma)*1000.
 	   << " MeV" << G4endl;
     */
     if (fabs(p_sigma)<0.000001) {
@@ -9310,11 +9331,11 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
       G4cout << "Sigma (" << momentumSigma.x() << ", "
       << momentumSigma.y() << ", " << momentumSigma.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatSigma (" << momentumScatSigma.x() << ", "
       << momentumScatSigma.y() << ", " << momentumScatSigma.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatProton (" << momentumScatProton.x() << ", "
       << momentumScatProton.y() << ", " << momentumScatProton.z() << ") "
       << G4endl;
@@ -9323,7 +9344,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
     if (1) {
       //neutron scattering
       Kinema3Resonance SigmaDecay;
-      SigmaDecay = Kinema3Resonance(mass_sigma, 
+      SigmaDecay = Kinema3Resonance(mass_sigma,
 				    0.0,
 				    0.0 , neutron->GetPDGMass()/GeV,
 				    piMinus->GetPDGMass()/GeV,
@@ -9338,7 +9359,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
       G4ThreeVector momentumDecayN(mom[1], mom[2], mom[0]);
       //double ThetaDecayN = SigmaDecay.GetTheta(4);
       //double PhiDecayN = SigmaDecay.GetPhi(4);
-      
+
       /* pi- */
       double Energy_decayPi = SigmaDecay.GetEnergy(5);
       double momentum_decayPi = SigmaDecay.GetMomentum(5);
@@ -9346,7 +9367,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
       G4ThreeVector momentumDecayPi( mom[1], mom[2], mom[0]);
       //double ThetaDecayPi = SigmaDecay.GetTheta(5);
       //double PhiDecayPi = SigmaDecay.GetPhi(5);
-      
+
       // Neutron momentum at beam frame
       momentumDecayN.rotateY(ThetaSig*deg);
       momentumDecayN.rotateZ(PhiSig*deg);
@@ -9356,32 +9377,32 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
       momentumDecayPi.rotateZ(PhiSig*deg);
 
       /*
-      std::cout << "SigmaMom = ( " << momentumSigma.x() << ", " 
+      std::cout << "SigmaMom = ( " << momentumSigma.x() << ", "
 		<< momentumSigma.y() << ", " << momentumSigma.z()
 		<< ")" << std::endl;
-      std::cout << "DecayN = ( " << momentumDecayN.x() << ", " 
+      std::cout << "DecayN = ( " << momentumDecayN.x() << ", "
 		<< momentumDecayN.y() << ", " << momentumDecayN.z()
 		<< ")" << std::endl;
-      std::cout << "DecayPi = ( " << momentumDecayPi.x() << ", " 
+      std::cout << "DecayPi = ( " << momentumDecayPi.x() << ", "
 		<< momentumDecayPi.y() << ", " << momentumDecayPi.z()
 		<< ")" << std::endl;
 
-      std::cout << "Delta = ( " 
+      std::cout << "Delta = ( "
 		<< momentumSigma.x()-momentumDecayN.x()-momentumDecayPi.x()
-		<< ", " 
-		<< momentumSigma.y()-momentumDecayN.y()-momentumDecayPi.y() 
-		<< ", " 
+		<< ", "
+		<< momentumSigma.y()-momentumDecayN.y()-momentumDecayPi.y()
+		<< ", "
 		<< momentumSigma.z()-momentumDecayN.z()-momentumDecayPi.z()
 		<< ")" << std::endl;
       */
-      double ThetaDecayNatBeamFrame, PhiDecayNatBeamFrame; 
-      calcThetaPhi(momentumDecayN, 
-		   &ThetaDecayNatBeamFrame, 
+      double ThetaDecayNatBeamFrame, PhiDecayNatBeamFrame;
+      calcThetaPhi(momentumDecayN,
+		   &ThetaDecayNatBeamFrame,
 		   &PhiDecayNatBeamFrame);
 
-      double ThetaDecayPiatBeamFrame, PhiDecayPiatBeamFrame; 
-      calcThetaPhi(momentumDecayPi, 
-		   &ThetaDecayPiatBeamFrame, 
+      double ThetaDecayPiatBeamFrame, PhiDecayPiatBeamFrame;
+      calcThetaPhi(momentumDecayPi,
+		   &ThetaDecayPiatBeamFrame,
 		   &PhiDecayPiatBeamFrame);
       /*
       std::cout << "ThetaDecayNatBeamFrame: " << ThetaDecayNatBeamFrame
@@ -9469,7 +9490,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
 	if (flagTgtType2 == 0 ) {
 	  flagNeutronScattering  = scatteringCheck(neutron_react_rate, dy/mm);
 	}
-	
+
 	if (flagNeutronScattering)
 	  break;
 
@@ -9548,7 +9569,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
 	if (flagTgtType3 == 0) {
 	  flagPionScattering  = scatteringCheck(pion_react_rate, dz/mm);
 	}
-	
+
 	if (flagPionScattering)
 	  break;
 
@@ -9574,9 +9595,9 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
 	} else {
 	  return;
 	}
-	//std::cout << scatParticle->GetPDGMass()/GeV << std::endl; 
+	//std::cout << scatParticle->GetPDGMass()/GeV << std::endl;
 	Kinema3Resonance NNScat;
-	NNScat = Kinema3Resonance(neutron->GetPDGMass()/GeV, 
+	NNScat = Kinema3Resonance(neutron->GetPDGMass()/GeV,
 				  scatParticle->GetPDGMass()/GeV,
 				  0.0 , neutron->GetPDGMass()/GeV,
 				  scatParticle->GetPDGMass()/GeV,
@@ -9594,7 +9615,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
 
 	momentumScatN.rotateY(ThetaDecayNatBeamFrame*deg);
 	momentumScatN.rotateZ(PhiDecayNatBeamFrame*deg);
-	
+
 	/* scattered Proton or Deuteron*/
 	G4double Energy_scatPart = NNScat.GetEnergy(5);
 	//G4double momentum_scatPart = NNScat.GetMomentum(5);
@@ -9604,23 +9625,23 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
 	momentumScatPart.rotateZ(PhiDecayNatBeamFrame*deg);
 
 	/*
-	std::cout << "DecayN = ( " << momentumDecayN.x() << ", " 
+	std::cout << "DecayN = ( " << momentumDecayN.x() << ", "
 		  << momentumDecayN.y() << ", " << momentumDecayN.z()
 		  << ")" << std::endl;
 
-	std::cout << "ScatN = ( " << momentumScatN.x() << ", " 
+	std::cout << "ScatN = ( " << momentumScatN.x() << ", "
 		  << momentumScatN.y() << ", " << momentumScatN.z()
 		  << ")" << std::endl;
 
-	std::cout << "ScatPart = ( " << momentumScatPart.x() << ", " 
+	std::cout << "ScatPart = ( " << momentumScatPart.x() << ", "
 		  << momentumScatPart.y() << ", " << momentumScatPart.z()
 		  << ")" << std::endl;
 
-	std::cout << "Delta = ( " 
+	std::cout << "Delta = ( "
 		  << momentumDecayN.x()-momentumScatN.x()-momentumScatPart.x()
-		  << ", " 
+		  << ", "
 		  << momentumDecayN.y()-momentumScatN.y()-momentumScatPart.y()
-		  << ", " 
+		  << ", "
 		  << momentumDecayN.z()-momentumScatN.z()-momentumScatPart.z()
 		  << ")" << std::endl;
 	*/
@@ -9640,7 +9661,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
 	particleGun->SetParticlePosition(globalVertexPos);
 	particleGun->GeneratePrimaryVertex(anEvent);
 
-	/*sigma*/    
+	/*sigma*/
 	particleGun->SetParticleDefinition(ssigma);
 	G4ThreeVector gloMomSigma = geomMan.Local2GlobalDir(TgtId, momentumSigma);
 	particleGun->SetParticleMomentumDirection(-gloMomSigma);
@@ -9657,7 +9678,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
 	particleGun->SetParticlePosition(globalDecayPos);
 	particleGun->GeneratePrimaryVertex(anEvent);
 
-	/*scat neutron*/    
+	/*scat neutron*/
 	particleGun->SetParticleDefinition(neutron);
 	G4ThreeVector gloMomentumScatN = geomMan.Local2GlobalDir(TgtId, momentumScatN);
 	particleGun->SetParticleMomentumDirection(gloMomentumScatN);
@@ -9665,7 +9686,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
 	particleGun->SetParticlePosition(globalNNScatPos);
 	particleGun->GeneratePrimaryVertex(anEvent);
 
-	/*scatt proton*/    
+	/*scatt proton*/
 	particleGun->SetParticleDefinition(scatParticle);
 	G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
 	particleGun->SetParticleMomentumDirection(gloMomScatPart);
@@ -9684,7 +9705,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
 	anaMan_->SetNNScatPos(localNNScatPos);
 	anaMan_->SetDecayFlag();
 	anaMan_->SetNNScatFlag();
-	anaMan_->SetNNScatTarget(flagTgtType2);	
+	anaMan_->SetNNScatTarget(flagTgtType2);
 	anaMan_->SetScatProtonMomentum(momentumScatPart);
 	anaMan_->SetFlightLengthInTarget(dxInH, 0);
 	anaMan_->SetDecayPiMomentum(momentumDecayPi);
@@ -9709,9 +9730,9 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
 	} else {
 	  return;
 	}
-	//std::cout << scatParticle->GetPDGMass()/GeV << std::endl; 
+	//std::cout << scatParticle->GetPDGMass()/GeV << std::endl;
 	Kinema3Resonance PiNScat;
-	PiNScat = Kinema3Resonance(piMinus->GetPDGMass()/GeV, 
+	PiNScat = Kinema3Resonance(piMinus->GetPDGMass()/GeV,
 				  scatParticle->GetPDGMass()/GeV,
 				  0.0 , piMinus->GetPDGMass()/GeV,
 				  scatParticle->GetPDGMass()/GeV,
@@ -9726,7 +9747,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
 
 	momentumScatPi.rotateY(ThetaDecayPiatBeamFrame*deg);
 	momentumScatPi.rotateZ(PhiDecayPiatBeamFrame*deg);
-	
+
 	/* scattered Proton or Deuteron*/
 	G4double Energy_scatPart = PiNScat.GetEnergy(5);
 	//G4double momentum_scatPart = PiNScat.GetMomentum(5);
@@ -9736,23 +9757,23 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
 	momentumScatPart.rotateZ(PhiDecayPiatBeamFrame*deg);
 
 	/*
-	std::cout << "DecayPi = ( " << momentumDecayPi.x() << ", " 
+	std::cout << "DecayPi = ( " << momentumDecayPi.x() << ", "
 		  << momentumDecayPi.y() << ", " << momentumDecayPi.z()
 		  << ")" << std::endl;
 
-	std::cout << "ScatPi = ( " << momentumScatPi.x() << ", " 
+	std::cout << "ScatPi = ( " << momentumScatPi.x() << ", "
 		  << momentumScatPi.y() << ", " << momentumScatPi.z()
 		  << ")" << std::endl;
 
-	std::cout << "ScatPart = ( " << momentumScatPart.x() << ", " 
+	std::cout << "ScatPart = ( " << momentumScatPart.x() << ", "
 		  << momentumScatPart.y() << ", " << momentumScatPart.z()
 		  << ")" << std::endl;
 
-	std::cout << "Delta = ( " 
+	std::cout << "Delta = ( "
 		  << momentumDecayPi.x()-momentumScatPi.x()-momentumScatPart.x()
-		  << ", " 
+		  << ", "
 		  << momentumDecayPi.y()-momentumScatPi.y()-momentumScatPart.y()
-		  << ", " 
+		  << ", "
 		  << momentumDecayPi.z()-momentumScatPi.z()-momentumScatPart.z()
 		  << ")" << std::endl;
 	*/
@@ -9772,7 +9793,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
 	particleGun->SetParticlePosition(globalVertexPos);
 	particleGun->GeneratePrimaryVertex(anEvent);
 
-	/*sigma*/    
+	/*sigma*/
 	particleGun->SetParticleDefinition(ssigma);
 	G4ThreeVector gloMomSigma = geomMan.Local2GlobalDir(TgtId, momentumSigma);
 	particleGun->SetParticleMomentumDirection(-gloMomSigma);
@@ -9780,7 +9801,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
 	particleGun->SetParticleEnergy((Energy_sig - sigma->GetPDGMass()/GeV)*GeV);
 	particleGun->SetParticlePosition(globalDecayPos);
 	particleGun->GeneratePrimaryVertex(anEvent);
-    
+
 	/* decay neutron */
 	particleGun->SetParticleDefinition(neutron);
 	G4ThreeVector gloMomDecayN = geomMan.Local2GlobalDir(TgtId, momentumDecayN);
@@ -9789,7 +9810,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
 	particleGun->SetParticlePosition(globalDecayPos);
 	particleGun->GeneratePrimaryVertex(anEvent);
 
-	/*scat pi-*/    
+	/*scat pi-*/
 	particleGun->SetParticleDefinition(piMinus);
 	G4ThreeVector gloMomentumScatPi = geomMan.Local2GlobalDir(TgtId, momentumScatPi);
 	particleGun->SetParticleMomentumDirection(gloMomentumScatPi);
@@ -9797,7 +9818,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
 	particleGun->SetParticlePosition(globalPiNScatPos);
 	particleGun->GeneratePrimaryVertex(anEvent);
 
-	/*scatt proton*/    
+	/*scatt proton*/
 	particleGun->SetParticleDefinition(scatParticle);
 	G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
 	particleGun->SetParticleMomentumDirection(gloMomScatPart);
@@ -9816,7 +9837,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
 	anaMan_->SetPiNScatPos(localPiNScatPos);
 	anaMan_->SetDecayFlag();
 	anaMan_->SetPiNScatFlag();
-	anaMan_->SetPiNScatTarget(flagTgtType3);	
+	anaMan_->SetPiNScatTarget(flagTgtType3);
 	anaMan_->SetScatProtonMomentum(momentumScatPart);
 	anaMan_->SetFlightLengthInTarget(dxInH, 0);
 	//anaMan_->SetDecayPiMomentum(momentumDecayPi);
@@ -9855,7 +9876,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
     particleGun->SetParticleEnergy((Energy_k - kPlus->GetPDGMass()/GeV)*GeV);
     particleGun->SetParticlePosition(globalVertexPos);
     particleGun->GeneratePrimaryVertex(anEvent);
-    
+
     /* beam */
     particleGun->SetParticleDefinition(spiMinus);
     G4ThreeVector gloMomBeam = geomMan.Local2GlobalDir(TgtId, momentumBeam);
@@ -9863,8 +9884,8 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
     particleGun->SetParticleEnergy((Energy_beam - spiMinus->GetPDGMass()/GeV)*GeV);
     particleGun->SetParticlePosition(globalVertexPos);
     particleGun->GeneratePrimaryVertex(anEvent);
-    
-    /*sigma*/    
+
+    /*sigma*/
     particleGun->SetParticleDefinition(ssigma);
     G4ThreeVector gloMomSigma = geomMan.Local2GlobalDir(TgtId, momentumSigma);
     particleGun->SetParticleMomentumDirection(-gloMomSigma);
@@ -9872,8 +9893,8 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
     particleGun->SetParticleEnergy((Energy_sig - sigma->GetPDGMass()/GeV)*GeV);
     particleGun->SetParticlePosition(globalDecayPos);
     particleGun->GeneratePrimaryVertex(anEvent);
-    
-    /*decaying sigma*/    
+
+    /*decaying sigma*/
     particleGun->SetParticleDefinition(usigma);
     particleGun->SetParticleMomentumDirection(gloMomSigma);
     // E_sigma is energy after energy deposit
@@ -9896,14 +9917,14 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
       return;
     }
 
-    SigmaScat = Kinema3Resonance(mass_sigma, 
+    SigmaScat = Kinema3Resonance(mass_sigma,
 				 scatParticle->GetPDGMass()/GeV,
 				 0.0 , mass_sigma,
 				 scatParticle->GetPDGMass()/GeV,
 				 mass_sigma, 0.0, p_sigma, 0.0,
 				 scatDistFlag);
-    
-    
+
+
     /* scattered Sigma */
     G4double Energy_scatSigma = SigmaScat.GetEnergy(4);
     //G4double momentum_scatSigma = SigmaScat.GetMomentum(4);
@@ -9911,10 +9932,10 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
     G4ThreeVector momentumScatSigma( mom[1], mom[2], mom[0]);
     momentumScatSigma.rotateY(ThetaSig*deg);
     momentumScatSigma.rotateZ(PhiSig*deg);
-    
+
     double ThetaScatSigCM = SigmaScat.GetThetaCM(1);
     double PhiScatSigCM = SigmaScat.GetPhiCM(1);
-    
+
     /*
       G4cout << "ScatSigma (" << momentumScatSigma.x() << ", "
       << momentumScatSigma.y() << ", " << momentumScatSigma.z() << ") "
@@ -9934,19 +9955,19 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
     */
     //G4cout << "ThetaPi : " << ThetaPi  << ", "
     //<< "PhiPi : " << PhiPi  << G4endl;
-    
-    
+
+
     //if (1) {
     /*
       G4cout << "Flight length = " << flength/cm << G4endl;
       G4cout << "Sigma (" << momentumSigma.x() << ", "
       << momentumSigma.y() << ", " << momentumSigma.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatSigma (" << momentumScatSigma.x() << ", "
       << momentumScatSigma.y() << ", " << momentumScatSigma.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatProton (" << momentumScatProton.x() << ", "
       << momentumScatProton.y() << ", " << momentumScatProton.z() << ") "
       << G4endl;
@@ -9984,7 +10005,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
     particleGun->SetParticlePosition(globalVertexPos);
     particleGun->GeneratePrimaryVertex(anEvent);
 
-    /*sigma*/    
+    /*sigma*/
     particleGun->SetParticleDefinition(ssigma);
     G4ThreeVector gloMomSigma = geomMan.Local2GlobalDir(TgtId, momentumSigma);
     particleGun->SetParticleMomentumDirection(-gloMomSigma);
@@ -9993,7 +10014,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
     particleGun->SetParticlePosition(globalScatPos);
     particleGun->GeneratePrimaryVertex(anEvent);
 
-    /*scatt sigma*/    
+    /*scatt sigma*/
     particleGun->SetParticleDefinition(sigma);
     G4ThreeVector gloMomScatSigma = geomMan.Local2GlobalDir(TgtId, momentumScatSigma);
     particleGun->SetParticleMomentumDirection(gloMomScatSigma);
@@ -10001,7 +10022,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
     particleGun->SetParticlePosition(globalScatPos);
     particleGun->GeneratePrimaryVertex(anEvent);
 
-    /*scatt proton*/    
+    /*scatt proton*/
     particleGun->SetParticleDefinition(scatParticle);
     G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
     particleGun->SetParticleMomentumDirection(gloMomScatPart);
@@ -10022,20 +10043,20 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
     if (flagLambdaPConv) {
       hyperon = particleTable->FindParticle("lambda");
       reactMode=2;
-    } else { 
+    } else {
       hyperon = particleTable->FindParticle("sigma0");
       reactMode=3;
     }
     double mass_proton = 0.93827200;
 
-    SigmaScat = Kinema3Resonance(mass_sigma, 
+    SigmaScat = Kinema3Resonance(mass_sigma,
 				 mass_proton,
 				 0.0 , hyperon->GetPDGMass()/GeV,
 				 scatParticle->GetPDGMass()/GeV,
 				 hyperon->GetPDGMass()/GeV, 0.0, p_sigma, 0.0,
 				 scatDistFlag);
 
-    
+
     /* scattered Hyperon */
     G4double Energy_scatSigma = SigmaScat.GetEnergy(4);
     //G4double momentum_scatSigma = SigmaScat.GetMomentum(4);
@@ -10043,10 +10064,10 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
     G4ThreeVector momentumScatSigma( mom[1], mom[2], mom[0]);
     momentumScatSigma.rotateY(ThetaSig*deg);
     momentumScatSigma.rotateZ(PhiSig*deg);
-    
+
     double ThetaScatSigCM = SigmaScat.GetThetaCM(1);
     double PhiScatSigCM = SigmaScat.GetPhiCM(1);
-    
+
     /*
       G4cout << "ScatSigma (" << momentumScatSigma.x() << ", "
       << momentumScatSigma.y() << ", " << momentumScatSigma.z() << ") "
@@ -10066,19 +10087,19 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
     */
     //G4cout << "ThetaPi : " << ThetaPi  << ", "
     //<< "PhiPi : " << PhiPi  << G4endl;
-    
-    
+
+
     //if (1) {
     /*
       G4cout << "Flight length = " << flength/cm << G4endl;
       G4cout << "Sigma (" << momentumSigma.x() << ", "
       << momentumSigma.y() << ", " << momentumSigma.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatSigma (" << momentumScatSigma.x() << ", "
       << momentumScatSigma.y() << ", " << momentumScatSigma.z() << ") "
       << G4endl;
-      
+
       G4cout << "ScatProton (" << momentumScatProton.x() << ", "
       << momentumScatProton.y() << ", " << momentumScatProton.z() << ") "
       << G4endl;
@@ -10116,7 +10137,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
     particleGun->SetParticlePosition(globalVertexPos);
     particleGun->GeneratePrimaryVertex(anEvent);
 
-    /*sigma*/    
+    /*sigma*/
     particleGun->SetParticleDefinition(ssigma);
     G4ThreeVector gloMomSigma = geomMan.Local2GlobalDir(TgtId, momentumSigma);
     particleGun->SetParticleMomentumDirection(-gloMomSigma);
@@ -10125,7 +10146,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
     particleGun->SetParticlePosition(globalScatPos);
     particleGun->GeneratePrimaryVertex(anEvent);
 
-    /*scatt hyperon*/    
+    /*scatt hyperon*/
     particleGun->SetParticleDefinition(hyperon);
     G4ThreeVector gloMomScatSigma = geomMan.Local2GlobalDir(TgtId, momentumScatSigma);
     particleGun->SetParticleMomentumDirection(gloMomScatSigma);
@@ -10133,7 +10154,7 @@ void CFTPrimaryGeneratorAction::GeneratePiKSigmaScat2(G4Event* anEvent)
     particleGun->SetParticlePosition(globalScatPos);
     particleGun->GeneratePrimaryVertex(anEvent);
 
-    /*scatt proton*/    
+    /*scatt proton*/
     particleGun->SetParticleDefinition(scatParticle);
     G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
     particleGun->SetParticleMomentumDirection(gloMomScatPart);
@@ -10192,7 +10213,7 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusBeam(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   /* beam */
   particleGun->SetParticleDefinition(piMinus);
   G4ThreeVector gloMomBeam = geomMan.Local2GlobalDir(TgtId, momentumBeam);
@@ -10200,8 +10221,8 @@ void CFTPrimaryGeneratorAction::GeneratePiMinusBeam(G4Event* anEvent)
   particleGun->SetParticleEnergy((Energy_beam - piMinus->GetPDGMass()/GeV)*GeV);
   particleGun->SetParticlePosition(globalVertexPos);
   particleGun->GeneratePrimaryVertex(anEvent);
-  
-  
+
+
   anaMan_->SetPrimaryVertex(localVertexPos);
   anaMan_->SetBeamMomentum(beammom);
 
@@ -10255,7 +10276,7 @@ void CFTPrimaryGeneratorAction::GeneratePiPlusBeam(G4Event* anEvent)
   const DCGeomMan & geomMan=DCGeomMan::GetInstance();
   G4int TgtId = geomMan.GetDetectorId("Target");
   G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
-  
+
   /* beam */
   particleGun->SetParticleDefinition(piPlus);
   G4ThreeVector gloMomBeam = geomMan.Local2GlobalDir(TgtId, momentumBeam);
@@ -10263,8 +10284,8 @@ void CFTPrimaryGeneratorAction::GeneratePiPlusBeam(G4Event* anEvent)
   particleGun->SetParticleEnergy((Energy_beam - piPlus->GetPDGMass()/GeV)*GeV);
   particleGun->SetParticlePosition(globalVertexPos);
   particleGun->GeneratePrimaryVertex(anEvent);
-  
-  
+
+
   anaMan_->SetPrimaryVertex(localVertexPos);
   anaMan_->SetBeamMomentum(beammom);
 
@@ -10329,18 +10350,18 @@ void CFTPrimaryGeneratorAction::EfficiencyStudyForScatPart(G4Event* anEvent, int
   if ( flagTgtType == 0 || flagTgtType == -1) {
     // inside the LH2 target;
     scatParticle = particleTable->FindParticle("proton");
-    
+
   } else if (flagTgtType == 1) {
     // inside the LD2 target;
-    scatParticle = particleTable->FindParticle("deuteron");      
+    scatParticle = particleTable->FindParticle("deuteron");
   } else {
     return;
   }
 
-  G4ThreeVector 
-    momentumScatPart( momScatPart*sin(thetaScatPart*Deg2Rad)*cos(phiScatPart*Deg2Rad), 
-		      momScatPart*sin(thetaScatPart*Deg2Rad)*sin(phiScatPart*Deg2Rad), 
-		      momScatPart*cos(thetaScatPart*Deg2Rad)); 
+  G4ThreeVector
+    momentumScatPart( momScatPart*sin(thetaScatPart*Deg2Rad)*cos(phiScatPart*Deg2Rad),
+		      momScatPart*sin(thetaScatPart*Deg2Rad)*sin(phiScatPart*Deg2Rad),
+		      momScatPart*cos(thetaScatPart*Deg2Rad));
   momentumScatPart.rotateY(ThetaSig*deg);
   momentumScatPart.rotateZ(PhiSig*deg);
   double Energy_scatPart =sqrt(momScatPart*momScatPart+
@@ -10350,9 +10371,9 @@ void CFTPrimaryGeneratorAction::EfficiencyStudyForScatPart(G4Event* anEvent, int
   anaMan_->SetScatPos(localScatPos);
   anaMan_->SetScatFlag();
   anaMan_->SetScatTarget(flagTgtType);
-  
-  /*scatt proton*/    
-  
+
+  /*scatt proton*/
+
   particleGun->SetParticleDefinition(scatParticle);
   G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
   particleGun->SetParticleMomentumDirection(gloMomScatPart);
@@ -10376,8 +10397,8 @@ void CFTPrimaryGeneratorAction::EfficiencyStudyForScatPart(G4Event* anEvent, int
   double massHyperon = hyperon->GetPDGMass()/GeV;
   double Energy_hyperon =sqrt(momHyperon*momHyperon+massHyperon*massHyperon);
 
-  
-  
+
+
   particleGun->SetParticleDefinition(hyperon);
   G4ThreeVector gloMomHyperon = geomMan.Local2GlobalDir(TgtId, momentumHyperon);
   particleGun->SetParticleMomentumDirection(gloMomHyperon);
@@ -10434,10 +10455,10 @@ void CFTPrimaryGeneratorAction::EfficiencyStudyForLambda(G4Event* anEvent)
   G4ParticleDefinition* scatParticle;
   scatParticle = particleTable->FindParticle("lambda");
 
-  G4ThreeVector 
-    momentumScatPart( momScatPart*sin(thetaScatPart*Deg2Rad)*cos(phiScatPart*Deg2Rad), 
-		      momScatPart*sin(thetaScatPart*Deg2Rad)*sin(phiScatPart*Deg2Rad), 
-		      momScatPart*cos(thetaScatPart*Deg2Rad)); 
+  G4ThreeVector
+    momentumScatPart( momScatPart*sin(thetaScatPart*Deg2Rad)*cos(phiScatPart*Deg2Rad),
+		      momScatPart*sin(thetaScatPart*Deg2Rad)*sin(phiScatPart*Deg2Rad),
+		      momScatPart*cos(thetaScatPart*Deg2Rad));
   momentumScatPart.rotateY(ThetaSig*deg);
   momentumScatPart.rotateZ(PhiSig*deg);
   double Energy_scatPart =sqrt(momScatPart*momScatPart+
@@ -10447,9 +10468,9 @@ void CFTPrimaryGeneratorAction::EfficiencyStudyForLambda(G4Event* anEvent)
   anaMan_->SetScatPos(localScatPos);
   anaMan_->SetScatFlag();
   anaMan_->SetScatTarget(flagTgtType);
-  
-  /*scatt lambda*/    
-  
+
+  /*scatt lambda*/
+
   particleGun->SetParticleDefinition(scatParticle);
   G4ThreeVector gloMomScatPart = geomMan.Local2GlobalDir(TgtId, momentumScatPart);
   particleGun->SetParticleMomentumDirection(gloMomScatPart);
@@ -10466,14 +10487,14 @@ void CFTPrimaryGeneratorAction::GenerateSigmaBeam()
   char buf[300];
   if (fgets(buf, sizeof(buf), fpSigBeam) == NULL)
     return;
-  
+
   double primary_vertex_x, primary_vertex_y, primary_vertex_z;
   double mom_x, mom_y, mom_z;
 
   sscanf(buf, "%lf %lf %lf %lf %lf %lf",
 	 &primary_vertex_x, &primary_vertex_y, &primary_vertex_z,
 	 &mom_x, &mom_y, &mom_z);
-  
+
   G4ParticleTable* particleTable = G4ParticleTable::GetParticleTable();
   G4ParticleDefinition* sigma;
   if (ReactionMode_ == 96)
@@ -10487,7 +10508,7 @@ void CFTPrimaryGeneratorAction::GenerateSigmaBeam()
 
   G4ThreeVector localVertexPos(primary_vertex_x, primary_vertex_y, primary_vertex_z);
   G4ThreeVector momentumSigma( mom_x, mom_y, mom_z);
-  
+
   /* Sigma-p scatt */
   //G4double flength=20.*mm;
   G4double ctau=0;
@@ -10521,10 +10542,10 @@ void CFTPrimaryGeneratorAction::GenerateSigmaBeam()
 
 #if 0
     std::cout << "------" << std::endl;
-    std::cout << "MomSigma ( " << momentumSigma.x() << ", "  
+    std::cout << "MomSigma ( " << momentumSigma.x() << ", "
 	      << momentumSigma.y() << ", " << momentumSigma.z()
 	      << ")" << std::endl;
-    std::cout << "LocalPos ( " << localSigmaPos.x() << ", "  
+    std::cout << "LocalPos ( " << localSigmaPos.x() << ", "
 	      << localSigmaPos.y() << ", " << localSigmaPos.z()
 	      << ")" << std::endl;
     {
@@ -10566,6 +10587,61 @@ void CFTPrimaryGeneratorAction::GenerateSigmaBeam()
   anaMan_->SetHypBeamMomentum(momentumSigma);
 }
 
+void CFTPrimaryGeneratorAction::GeneratePPiFromLambdaDecay(G4Event* anEvent)
+{
+
+  char buf[300];
+  if (fgets(buf, sizeof(buf), fpLambdaDecay) == NULL)
+    return;
+
+  double primary_vertex_x, primary_vertex_y, primary_vertex_z;
+  double mom_p_x, mom_p_y, mom_p_z;
+  double mom_pi_x, mom_pi_y, mom_pi_z;
+
+  sscanf(buf, "%lf %lf %lf %lf %lf %lf %lf %lf %lf",
+	 &primary_vertex_x, &primary_vertex_y, &primary_vertex_z,
+	 &mom_p_x, &mom_p_y, &mom_p_z, &mom_pi_x, &mom_pi_y, &mom_pi_z);
+
+  if (primary_vertex_x <-990)
+    return;
+
+  G4ParticleTable* particleTable = G4ParticleTable::GetParticleTable();
+  G4ParticleDefinition* proton = particleTable->FindParticle("proton");
+  G4ParticleDefinition* piMinus = particleTable->FindParticle("pi-");
+
+  const DCGeomMan & geomMan=DCGeomMan::GetInstance();
+  G4int TgtId = geomMan.GetDetectorId("Target");
+
+  G4ThreeVector localVertexPos(primary_vertex_x, primary_vertex_y, primary_vertex_z);
+  G4ThreeVector globalVertexPos = geomMan.Local2GlobalPos(TgtId, localVertexPos);
+
+  G4ThreeVector momentumProton( mom_p_x, mom_p_y, mom_p_z);
+  G4ThreeVector momentumPiMinus( mom_pi_x, mom_pi_y, mom_pi_z);
+
+  double MassP = proton->GetPDGMass()/GeV;
+  double EkinP = sqrt(MassP*MassP+momentumProton.mag2())-MassP;
+  double MassPi = piMinus->GetPDGMass()/GeV;
+  double EkinPi = sqrt(MassPi*MassPi+momentumPiMinus.mag2())-MassPi;
+
+  particleGun->SetParticleDefinition(proton);
+  G4ThreeVector gloMomDecayProton = geomMan.Local2GlobalDir(TgtId, momentumProton);
+  particleGun->SetParticleMomentumDirection(gloMomDecayProton);
+  particleGun->SetParticleEnergy(EkinP*GeV);
+  particleGun->SetParticlePosition(globalVertexPos);
+  particleGun->GeneratePrimaryVertex(anEvent);
+
+  particleGun->SetParticleDefinition(piMinus);
+  G4ThreeVector gloMomDecayPiMinus = geomMan.Local2GlobalDir(TgtId, momentumPiMinus);
+  particleGun->SetParticleMomentumDirection(gloMomDecayPiMinus);
+  particleGun->SetParticleEnergy(EkinPi*GeV);
+  particleGun->SetParticlePosition(globalVertexPos);
+  particleGun->GeneratePrimaryVertex(anEvent);
+
+
+
+}
+
+
 
 void CFTPrimaryGeneratorAction::calcThetaPhi(G4ThreeVector vec, double *theta, double *phi)
 {
@@ -10603,14 +10679,14 @@ int CFTPrimaryGeneratorAction::getTargetFlag(G4ThreeVector pos)
   int flagTgtType = -1;
 
   double r = sqrt((pos.x()/mm)*(pos.x()/mm)+(pos.y()/mm)*(pos.y()/mm));
-  if ( r <= LH2TgtR/2. 
+  if ( r <= LH2TgtR/2.
        && fabs(pos.z()/mm) <= Target_Length/2. ) {
     // inside the LH2 target;
     flagTgtType = 0;
     return flagTgtType;
   }
 
-  return flagTgtType;	
+  return flagTgtType;
 
 }
 
@@ -10625,8 +10701,8 @@ G4bool CFTPrimaryGeneratorAction::decayCheck(G4double ctau, G4double momentum, G
   x=(G4double)RandFlat::shoot();
   if (x > value)
     return true;
-  else 
-    return false;  
+  else
+    return false;
 
 }
 
@@ -10640,8 +10716,8 @@ G4bool CFTPrimaryGeneratorAction::scatteringCheck(G4double rate, G4double dx)
   x=(G4double)RandFlat::shoot();
   if (x < value)
     return true;
-  else 
-    return false;  
+  else
+    return false;
 
 }
 
@@ -10651,7 +10727,7 @@ G4double CFTPrimaryGeneratorAction::calcEnergyDeposit(G4double momentum, G4doubl
 
   G4double E0 = sqrt(momentum*momentum+mass*mass) * 1000.; //GeV --> MeV
   G4double beta = momentum/sqrt(momentum*momentum+mass*mass);
-  
+
   G4double dEdx = calc_dE_dx(beta, flagTgtType);    // MeV/cm
   if (dEdx < 0.) {
     return -1.;
@@ -10664,7 +10740,7 @@ G4double CFTPrimaryGeneratorAction::calcEnergyDeposit(G4double momentum, G4doubl
   }
 
   G4double p = sqrt((E/1000.)*(E/1000.) -mass*mass); //GeV/c
-  
+
   return p;
 }
 
@@ -10711,5 +10787,3 @@ G4double CFTPrimaryGeneratorAction::calc_dE_dx(double beta, int flagTgtType)
   return value;
 
 }
-
-
