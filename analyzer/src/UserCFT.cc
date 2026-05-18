@@ -57,10 +57,10 @@ const double Deg2Rad = acos(-1.)/180.;
 const double Rad2Deg = 180./acos(-1.);
 
 
-#ifndef MaxHits 
+#ifndef MaxHits
 #define MaxHits 30
 #endif
-#ifndef MaxHits2 
+#ifndef MaxHits2
 #define MaxHits2 60
 #endif
 
@@ -130,10 +130,14 @@ struct Event{
 
   int ntCFT;
   double BGO_Edep[MaxHits2];
+  double BGO_Edep_proton[MaxHits2];
+  double BGO_Edep_pion[MaxHits2];
   double TotalEdep[MaxHits2];
   double CFT_TotalEdep[MaxHits2];
-  double CFT_NormTotalEdep[MaxHits2];  
+  double CFT_NormTotalEdep[MaxHits2];
   double CFT_MaxFiberEdep [NumOfPlaneCFT][MaxHits2];
+  double CFT_MaxFiberEdep_proton [NumOfPlaneCFT][MaxHits2];
+  double CFT_MaxFiberEdep_pion [NumOfPlaneCFT][MaxHits2];
   double PiV_Edep[MaxHits2];
   double theta[MaxHits2];
 
@@ -175,7 +179,7 @@ enum eArg
 int main( int argc, char **argv )
 {
   if( argc != kArgc ) {
-    std::cerr << "Usage: " << argv[kArgProcessName] 
+    std::cerr << "Usage: " << argv[kArgProcessName]
 	      << " [confFile]  [dataFile] [RootFile]"
 	      << std::endl;
     exit(-1);
@@ -205,17 +209,17 @@ int main( int argc, char **argv )
     gconfManager->InitializeEvDispCFT(RunNum);
   }
 
-  
+
   DefineHistograms(rootFile.c_str());
 
   signal(SIGINT,closeFile);
-  
+
   std::ifstream InputData( inFile.c_str() );
   std::cout<<"***************************************************"<<std::endl;
-  
+
   while( ProcessOneEvent( InputData ) ){
-#ifdef Interactive 
-    int it; 
+#ifdef Interactive
+    int it;
     std::cout << "# ";
     std::cin >> it;
     if( it<0 ) break;
@@ -265,7 +269,7 @@ bool ProcessOneEvent( std::ifstream &In )
   In.getline(line, sizeof(line));
   sscanf(line,"%lf %lf %lf %lf %lf %lf %lf %lf %lf",
 	 &event.thetaMeson,&event.phiMeson,&event.thetaMesonCM,
-	 &event.phiMesonCM,&event.thetaScatHypCM,&event.phiScatHypCM, 
+	 &event.phiMesonCM,&event.thetaScatHypCM,&event.phiScatHypCM,
 	 &event.thetaScatPLab, &event.thetaScatHypLab, &event.beammom);
   In.getline(line, sizeof(line));
   sscanf(line,"momVectorScatMeson %lf %lf %lf",
@@ -315,103 +319,103 @@ bool ProcessOneEvent( std::ifstream &In )
 	 &event.decayFlag, &event.scatFlag, &event.scatTarget, &event.NNscatFlag,
 	 &event.NNscatTarget, &event.PiNscatFlag, &event.PiNscatTarget);
 
-  event.momScatMeson = 
-    sqrt(event.momVectorScatMeson[0]*event.momVectorScatMeson[0] + 
-         event.momVectorScatMeson[1]*event.momVectorScatMeson[1] + 
+  event.momScatMeson =
+    sqrt(event.momVectorScatMeson[0]*event.momVectorScatMeson[0] +
+         event.momVectorScatMeson[1]*event.momVectorScatMeson[1] +
          event.momVectorScatMeson[2]*event.momVectorScatMeson[2]);
-  event.momHypBeam = 
-    sqrt(event.momVectorHypBeam[0]*event.momVectorHypBeam[0] + 
-         event.momVectorHypBeam[1]*event.momVectorHypBeam[1] + 
+  event.momHypBeam =
+    sqrt(event.momVectorHypBeam[0]*event.momVectorHypBeam[0] +
+         event.momVectorHypBeam[1]*event.momVectorHypBeam[1] +
          event.momVectorHypBeam[2]*event.momVectorHypBeam[2]);
-  event.momHypScat = 
-    sqrt(event.momVectorHypScat[0]*event.momVectorHypScat[0] + 
-         event.momVectorHypScat[1]*event.momVectorHypScat[1] + 
+  event.momHypScat =
+    sqrt(event.momVectorHypScat[0]*event.momVectorHypScat[0] +
+         event.momVectorHypScat[1]*event.momVectorHypScat[1] +
          event.momVectorHypScat[2]*event.momVectorHypScat[2]);
-  event.momProtonScat = 
-    sqrt(event.momVectorProtonScat[0]*event.momVectorProtonScat[0] + 
-         event.momVectorProtonScat[1]*event.momVectorProtonScat[1] + 
+  event.momProtonScat =
+    sqrt(event.momVectorProtonScat[0]*event.momVectorProtonScat[0] +
+         event.momVectorProtonScat[1]*event.momVectorProtonScat[1] +
          event.momVectorProtonScat[2]*event.momVectorProtonScat[2]);
-  event.momDecayPi = 
-    sqrt(event.momVectorDecayPi[0]*event.momVectorDecayPi[0] + 
-         event.momVectorDecayPi[1]*event.momVectorDecayPi[1] + 
+  event.momDecayPi =
+    sqrt(event.momVectorDecayPi[0]*event.momVectorDecayPi[0] +
+         event.momVectorDecayPi[1]*event.momVectorDecayPi[1] +
          event.momVectorDecayPi[2]*event.momVectorDecayPi[2]);
-  event.momDecayNucleon = 
-    sqrt(event.momVectorDecayNucleon[0]*event.momVectorDecayNucleon[0] + 
-         event.momVectorDecayNucleon[1]*event.momVectorDecayNucleon[1] + 
+  event.momDecayNucleon =
+    sqrt(event.momVectorDecayNucleon[0]*event.momVectorDecayNucleon[0] +
+         event.momVectorDecayNucleon[1]*event.momVectorDecayNucleon[1] +
          event.momVectorDecayNucleon[2]*event.momVectorDecayNucleon[2]);
 
 #if 0
-  std::cout << "thetaMeson = " << event.thetaMeson 
-	    << " phiMeson = " << event.phiMeson 
-	    << " thetaMesonCM = " << event.thetaMesonCM 
-	    << " phiMesonCM = "   << event.phiMesonCM 
-	    << " thetaScatHypCM = " << event.thetaScatHypCM 
+  std::cout << "thetaMeson = " << event.thetaMeson
+	    << " phiMeson = " << event.phiMeson
+	    << " thetaMesonCM = " << event.thetaMesonCM
+	    << " phiMesonCM = "   << event.phiMesonCM
+	    << " thetaScatHypCM = " << event.thetaScatHypCM
 	    << " phiScatHypCM = " << event.phiScatHypCM << std::endl;
-  
-  std::cout << "momVectorScatmeson = ( " 
-	    << event.momVectorScatMeson[0] << ", " 
-	    << event.momVectorScatMeson[1] << ", " 
+
+  std::cout << "momVectorScatmeson = ( "
+	    << event.momVectorScatMeson[0] << ", "
+	    << event.momVectorScatMeson[1] << ", "
 	    << event.momVectorScatMeson[2] << ")" << std::endl ;
-  std::cout << "momVectorHypBeam = ( " 
-	    << event.momVectorHypBeam[0] << ",  " 
-	    << event.momVectorHypBeam[1] << ", " 
+  std::cout << "momVectorHypBeam = ( "
+	    << event.momVectorHypBeam[0] << ",  "
+	    << event.momVectorHypBeam[1] << ", "
 	    << event.momVectorHypBeam[2] << ")"  << std::endl;
-  std::cout << "momVectorHypScat = ( " 
-	    << event.momVectorHypScat[0] << ", " 
-	    << event.momVectorHypScat[1] << ", " 
+  std::cout << "momVectorHypScat = ( "
+	    << event.momVectorHypScat[0] << ", "
+	    << event.momVectorHypScat[1] << ", "
 	    << event.momVectorHypScat[2] << ")"  << std::endl;
-  std::cout << "momVectorProtonScat = ( " 
-	    << event.momVectorProtonScat[0] << ", " 
-	    << event.momVectorProtonScat[1] << ", " 
+  std::cout << "momVectorProtonScat = ( "
+	    << event.momVectorProtonScat[0] << ", "
+	    << event.momVectorProtonScat[1] << ", "
 	    << event.momVectorProtonScat[2] << ")" << std::endl; ;
-  std::cout << "momVectorDecayPi = ( " 
-	    << event.momVectorDecayPi[0] << ", " 
-	    << event.momVectorDecayPi[1] << ", " 
+  std::cout << "momVectorDecayPi = ( "
+	    << event.momVectorDecayPi[0] << ", "
+	    << event.momVectorDecayPi[1] << ", "
 	    << event.momVectorDecayPi[2] << ")" << std::endl ;
-  std::cout << "momVectorDecayNucleon = ( " 
-	    << event.momVectorDecayNucleon[0] << ", " 
-	    << event.momVectorDecayNucleon[1] << ", " 
+  std::cout << "momVectorDecayNucleon = ( "
+	    << event.momVectorDecayNucleon[0] << ", "
+	    << event.momVectorDecayNucleon[1] << ", "
 	    << event.momVectorDecayNucleon[2] << ")"  << std::endl;
-  std::cout << "primaryVertex = ( " 
-	    << event.primaryVertex[0] << ", " 
-	    << event.primaryVertex[1] << ", " 
+  std::cout << "primaryVertex = ( "
+	    << event.primaryVertex[0] << ", "
+	    << event.primaryVertex[1] << ", "
 	    << event.primaryVertex[2] << ")"  << std::endl;
-  std::cout << "scatPos = ( " 
-	    << event.scatPos0[0] << ", " 
-	    << event.scatPos0[1] << ", " 
+  std::cout << "scatPos = ( "
+	    << event.scatPos0[0] << ", "
+	    << event.scatPos0[1] << ", "
 	    << event.scatPos0[2] << ")"  << std::endl;
-  std::cout << "NNscatPos = ( " 
-	    << event.NNscatPos[0] << ", " 
-	    << event.NNscatPos[1] << ", " 
+  std::cout << "NNscatPos = ( "
+	    << event.NNscatPos[0] << ", "
+	    << event.NNscatPos[1] << ", "
 	    << event.NNscatPos[2] << ")"  << std::endl;
-  std::cout << "decayPos = ( " 
-	    << event.decayPos[0] << ", " 
-	    << event.decayPos[1] << ", " 
+  std::cout << "decayPos = ( "
+	    << event.decayPos[0] << ", "
+	    << event.decayPos[1] << ", "
 	    << event.decayPos[2] << ")"  << std::endl;
-  
-  std::cout << "decayFlag = " << event.decayFlag 
-	    << ", scatFlag =  " << event.scatFlag 
-	    << ", scatTarget =  " << event.scatTarget 
-	    << ", NNscatFlag =  " << event.NNscatFlag 
+
+  std::cout << "decayFlag = " << event.decayFlag
+	    << ", scatFlag =  " << event.scatFlag
+	    << ", scatTarget =  " << event.scatTarget
+	    << ", NNscatFlag =  " << event.NNscatFlag
 	    << ", NNscatTarget = " << event.NNscatTarget << std::endl;
 #endif
   if (FlagEvDisp) {
-    std::cout << "decayFlag = " << event.decayFlag 
-	      << ", scatFlag =  " << event.scatFlag 
-	      << ", NNscatFlag =  " << event.NNscatFlag 
+    std::cout << "decayFlag = " << event.decayFlag
+	      << ", scatFlag =  " << event.scatFlag
+	      << ", NNscatFlag =  " << event.NNscatFlag
 	      << ", PiNscatFlag = " << event.PiNscatFlag << std::endl;
   }
-  /*  
+  /*
   double gx,gy,gz,gp,gt,gf,gpb,gub,gvb;
   In >> gx >> gy >> gz >> gp >> gt >> gf >> gpb >> gub >> gvb;
   */
 #if 0
   std::cout<< "*********************************************" <<std::endl;
-  std::cout<<" "<< gx 
-	   <<" "<< gy 
-	   <<" "<< gz 
-	   <<" "<< gp 
-	   <<" "<< gt 
+  std::cout<<" "<< gx
+	   <<" "<< gy
+	   <<" "<< gz
+	   <<" "<< gp
+	   <<" "<< gt
 	   <<" "<< gf
 	   <<" "<< gpb
 	   <<" "<< gub
@@ -440,14 +444,14 @@ bool ProcessOneEvent( std::ifstream &In )
     In.getline(line, sizeof(line));
     sscanf(line,"%d %d %lf [ns] %lf [MeV]  %d",
 	   &layer,&segment,&time,&edep, &pid);
-    
+
     if( layer >= 61 && layer <= 68) {
       int flayer = layer-61;
       rawData->AddCFTHodoRawHit(DetIdCFT, flayer, segment, 0, 0, edep);
       rawData->AddCFTHodoRawHit(DetIdCFT, flayer, segment, 0, 1, edep);
       rawData->AddCFTHodoRawHit(DetIdCFT, flayer, segment, 1, 0, time);
       rawData->AddCFTHodoRawHit(DetIdCFT, flayer, segment, 1, 1, time);
-      
+
     }
   }
   // BGO
@@ -507,9 +511,9 @@ bool ProcessOneEvent( std::ifstream &In )
       rawData->AddSdcInRawHit(layer, segment, dtime);
     else if (layer >= PlMinSdcOut && layer <= PlMaxSdcOut)
       rawData->AddSdcOutRawHit(layer, segment, dtime);
-    else if (layer >= PlOffsBc+PlMinBcOut && layer <= PlOffsBc+PlMaxBcOut) 
+    else if (layer >= PlOffsBc+PlMinBcOut && layer <= PlOffsBc+PlMaxBcOut)
       rawData->AddBcOutRawHit(layer, segment, dtime);
-    else 
+    else
       std::cout << "No such layer in DC " << layer << std::endl;
   }
 
@@ -618,7 +622,7 @@ bool ProcessOneEvent( std::ifstream &In )
 
       double mean_seg = cl->MeanPairId();
       HF1 (hid+2, mean_seg);
-      
+
     }
   }
 
@@ -764,7 +768,7 @@ bool ProcessOneEvent( std::ifstream &In )
       } else {
 	std::cout << "t1 : " << t1 << ", t2 : " << t2 << std::endl;
       }
-	
+
     }
 
 
@@ -814,13 +818,13 @@ bool ProcessOneEvent( std::ifstream &In )
       if (t>=0) {
 
 	HF1(421, dist);
-	
+
 	if (fabs(dist)<25 && time>0 && time<5) {
 	  //dE_BGO += dE;
 	  CFTPart->AddBGOHit(hit);
 	}
       }
-    }    
+    }
 
     double dE_PiV=0.;
     for (int n=0; n<nhitPiV; n++) {
@@ -845,13 +849,13 @@ bool ProcessOneEvent( std::ifstream &In )
 
       if (t>=0) {
 	HF1(430, dist);
-	
+
 	if (fabs(dist)<30 && time>0 && time<5) {
 	  dE_PiV += dE;
 	  CFTPart->AddPiVHit(hit);
 	}
       }
-    }    
+    }
     if (nhitPiV>0)
       HF1(431, dE_PiV);
 
@@ -862,7 +866,7 @@ bool ProcessOneEvent( std::ifstream &In )
     ThreeVector dir  = CFTPart->GetDir();
     /*
     std::cout << "Pos0 ( " << pos0.x() << ", " << pos0.y() << ", " << pos0.z() << "), "
-	      << " Dir ( " << dir.x()/dir.mag() << ", " << dir.y()/dir.mag() 
+	      << " Dir ( " << dir.x()/dir.mag() << ", " << dir.y()/dir.mag()
 	      << ", " << dir.z()/dir.mag() << ") " << std::endl;
     */
 
@@ -960,7 +964,7 @@ bool ProcessOneEvent( std::ifstream &In )
 	double chisqrZ = tp->GetChiSquareZ();
 	double x0 = tp->GetX0(), u0 = tp->GetU0();
 	double y0 = tp->GetY0(), v0 = tp->GetV0();
-	/*	
+	/*
 	HF1(502, nhXY);
 	HF1(503, nhZ);
 	HF1(504, chisqrXY);
@@ -968,13 +972,13 @@ bool ProcessOneEvent( std::ifstream &In )
 	HF1(506, x0);    HF1(507, y0);
 	HF1(508, u0);    HF1(509, v0);
 	HF2(510, x0, y0);HF1(511, u0, v0);
-	*/	
+	*/
 	double totalDE = tp->TotalDEHiGain();
 	double maxDE = tp->MaxDEHiGain();
 	double pathlength = tp->GetTotalPathLength();
 	double normalizedTotalDE = tp->NormalizedTotalDEHiGain();
 	double normalizedMaxDE = tp->NormalizedMaxDEHiGain();
-	/*	
+	/*
 	HF1(512, totalDE);
 	HF1(513, maxDE);
 	HF1(514, pathlength);
@@ -984,13 +988,13 @@ bool ProcessOneEvent( std::ifstream &In )
 	HF2(518, pathlength, maxDE);
 	HF2(519, pathlength, normalizedTotalDE);
 	HF2(520, pathlength, normalizedMaxDE);
-	*/	
+	*/
 	int xyFitFlag = tp->GetXYFitFlag();
 	double Axy = tp->GetAxy();
 	double Bxy = tp->GetBxy();
 	ThreeVector Pos0 = tp->GetPos0();
 	ThreeVector Dir = tp->GetDir();
-	
+
 	double A=(Dir.x()*Dir.x()+Dir.y()*Dir.y());
 	double B=(Dir.x()*Pos0.x()+Dir.y()*Pos0.y());
 	double C=Pos0.x()*Pos0.x()+Pos0.y()*Pos0.y()-RadiusOfBGOSurface*RadiusOfBGOSurface;
@@ -1000,7 +1004,7 @@ bool ProcessOneEvent( std::ifstream &In )
 	if (B*B-A*C>=0) {
 	  t1 = (-B+sqrt(B*B-A*C))/A;
 	  t2 = (-B-sqrt(B*B-A*C))/A;
-	  
+
 	  if (t1>=0 && t2<=0) {
 	    zBGO = Dir.z()*t1 + Pos0.z();
 	    trackPosBGO[0] = Dir.x()*t1 + Pos0.x();
@@ -1014,9 +1018,9 @@ bool ProcessOneEvent( std::ifstream &In )
 	  } else {
 	    std::cout << "t1 : " << t1 << ", t2 : " << t2 << std::endl;
 	  }
-	  
+
 	}
-	
+
 	if (xyFitFlag==0) {
 	  double x1=-100., x2=100.;
 	  double y1 = Axy*x1+Bxy;
@@ -1034,7 +1038,7 @@ bool ProcessOneEvent( std::ifstream &In )
 	    evDisp.DrawTrackInXYPlane(Pos0.x(), Pos0.y(), trackPosBGO[0], trackPosBGO[1]);
 	  }
 	}
-	
+
 	if (tp->GetZTrackFlag()==0 || tp->GetZTrackFlag()==1) {
 	  if (FlagEvDisp) {
 	    const EvDispCFT & evDisp = EvDispCFT::GetInstance();
@@ -1042,20 +1046,20 @@ bool ProcessOneEvent( std::ifstream &In )
 	    evDisp.DrawTrackInZYPlane(Pos0.z(), Pos0.y(), trackPosBGO[2], trackPosBGO[1]);
 	  }
 	}
-	
+
 	CFTParticle * CFTPart = new CFTParticle(tp);
 	CFTPart->Calculate();
-	
+
 	ThreeVector pos0 = CFTPart->GetPos0();
 	ThreeVector dir  = CFTPart->GetDir();
 	/*
 	  std::cout << "Pos0 ( " << pos0.x() << ", " << pos0.y() << ", " << pos0.z() << "), "
-	  << " Dir ( " << dir.x()/dir.mag() << ", " << dir.y()/dir.mag() 
+	  << " Dir ( " << dir.x()/dir.mag() << ", " << dir.y()/dir.mag()
 	  << ", " << dir.z()/dir.mag() << ") " << std::endl;
 	*/
-	
+
 	CFTPartCont.push_back(CFTPart);
-	
+
 	/*
 	  if (it<MaxHits2) {
 	  event.xDirCFT[it] = Dir.x();
@@ -1064,9 +1068,9 @@ bool ProcessOneEvent( std::ifstream &In )
 	  event.xPos0CFT[it] = Pos0.x();
 	  event.yPos0CFT[it] = Pos0.y();
 	  event.zPos0CFT[it] = Pos0.z();
-	  
+
 	  event.zBGOCFT[it] = zBGO;
-	
+
 	  event.CFT_TotalEdep[it] = totalDE;
 	  event.CFT_NormTotalEdep[it] = normalizedTotalDE;
 	  event.BGO_Edep[it] = dE_BGO;
@@ -1074,8 +1078,8 @@ bool ProcessOneEvent( std::ifstream &In )
 	  event.TotalEdep[it] = dE_BGO+totalDE;
 	  }
 	*/
-	
-	
+
+
 	if (CFTPart->GetMass() > 0.9 && CFTProtonCont.size() == 0)
 	  CFTProtonCont.push_back(CFTPart);
 	else if (CFTPart->GetMass() > 0.0 && CFTPart->GetMass() < 0.2 && CFTPionCont.size() == 0)
@@ -1088,7 +1092,7 @@ bool ProcessOneEvent( std::ifstream &In )
 
   int nP_CFT = CFTProtonCont.size();
   int nPi_CFT = CFTPionCont.size();
-  
+
   event.nP_CFT = nP_CFT;
   event.nPi_CFT = nPi_CFT;
 
@@ -1096,6 +1100,25 @@ bool ProcessOneEvent( std::ifstream &In )
     int nhBGO = CFTProtonCont[it]->NHitBGO();
     for (int j=0; j<nhBGO; j++) {
       CFTProtonCont[it]->GetBGOHit(j)->SetBGO_Pid(10);
+    }
+    if (it<MaxHits2) {
+      CFTLocalTrack *tp = CFTProtonCont[it]->GetTrack();
+      int nh = tp->GetNHit();
+      for (int j=0; j<nh; j++) {
+	CFTFiberCluster *fcl = tp->GetHit(j);
+	int layer = fcl->GetTrackingLayer() - 61;
+
+	event.CFT_MaxFiberEdep_proton[layer][it] = fcl->MaxDEHiGain();
+      }
+
+      int nhU = tp->GetNHitU();
+      for (int j=0; j<nhU; j++) {
+	CFTFiberCluster *fcl = tp->GetHitU(j);
+	int layer = fcl->GetTrackingLayer() - 61;
+
+	event.CFT_MaxFiberEdep_proton[layer][it] = fcl->MaxDEHiGain();
+      }
+      event.BGO_Edep_proton[it] = CFTProtonCont[it]->GetBGO_E();
     }
   }
 
@@ -1119,7 +1142,7 @@ bool ProcessOneEvent( std::ifstream &In )
 	  maxSeg = seg;
 	else if (seg > maxSeg)
 	  maxSeg = seg;
-	  
+
       }
     }
 
@@ -1168,6 +1191,26 @@ bool ProcessOneEvent( std::ifstream &In )
       event.BGO_ClustNum_Pi[it] = CFTPionCont[it]->NHitBGO();
       event.BGO_ClustNumNoTrack_Pi[it] = clustNum;
     }
+
+    if (it<MaxHits2) {
+      CFTLocalTrack *tp = CFTPionCont[it]->GetTrack();
+      int nh = tp->GetNHit();
+      for (int j=0; j<nh; j++) {
+	CFTFiberCluster *fcl = tp->GetHit(j);
+	int layer = fcl->GetTrackingLayer() - 61;
+
+	event.CFT_MaxFiberEdep_pion[layer][it] = fcl->MaxDEHiGain();
+      }
+
+      int nhU = tp->GetNHitU();
+      for (int j=0; j<nhU; j++) {
+	CFTFiberCluster *fcl = tp->GetHitU(j);
+	int layer = fcl->GetTrackingLayer() - 61;
+
+	event.CFT_MaxFiberEdep_pion[layer][it] = fcl->MaxDEHiGain();
+      }
+      event.BGO_Edep_pion[it] = CFTPionCont[it]->GetBGO_E();
+    }
   }
 
   event.nhBGO_NoTrack=0;
@@ -1204,7 +1247,7 @@ bool ProcessOneEvent( std::ifstream &In )
     HF1(1005, EffStudyEvent);
     if (nPi_CFT == 0)
       HF1(1006, EffStudyEvent);
-  } 
+  }
 
 
   for (int nt=0; nt<nPi_CFT; nt++) {
@@ -1322,7 +1365,7 @@ bool ProcessOneEvent( std::ifstream &In )
       Hodo2Hit *hit = ProtonCFT->GetPiVHit(i);
       int segment = hit->SegmentId();
       int layer   = hit->PlaneId();
-      
+
       if (FlagEvDisp) {
 	const EvDispCFT & evDisp = EvDispCFT::GetInstance();
 	evDisp.ShowHitPiV_Proton(layer, segment);
@@ -1330,7 +1373,7 @@ bool ProcessOneEvent( std::ifstream &In )
     }
 
   }
-  
+
   if (FlagEvDisp) {
     const EvDispCFT & evDisp = EvDispCFT::GetInstance();
     //if (1) {
@@ -1416,7 +1459,7 @@ void InitializeEvent( void )
   event.PiNscatFlag = -999;
   event.PiNscatTarget = -999;
 
-  for (int i=0; i<NumOfPlaneCFT; i++) 
+  for (int i=0; i<NumOfPlaneCFT; i++)
     event.FiberHits[i] = 0;
   for (int i=0; i<NumOfPlaneCFT; i++) {
     for (int j=0; j<MaxHits2; j++) {
@@ -1454,6 +1497,8 @@ void InitializeEvent( void )
   event.ntCFT = 0;
   for (int i=0; i<MaxHits2; i++) {
     event.BGO_Edep[i]=-999.;
+    event.BGO_Edep_proton[i]=-999.;
+    event.BGO_Edep_pion[i]=-999.;
     event.TotalEdep[i]=-999.;
     event.CFT_TotalEdep[i]=-999.;
     event.CFT_NormTotalEdep[i]=-999.;
@@ -1467,6 +1512,8 @@ void InitializeEvent( void )
   for (int i=0; i<NumOfPlaneCFT; i++) {
     for (int j=0; j<MaxHits2; j++) {
       event.CFT_MaxFiberEdep [i][j] = -999.;
+      event.CFT_MaxFiberEdep_proton [i][j] = -999.;
+      event.CFT_MaxFiberEdep_pion [i][j] = -999.;
     }
   }
 
@@ -1645,7 +1692,12 @@ void DefineHistograms( const char *filename )
   tree->Branch("CrystalPID",   &event.CrystalPID,  "CrystalPID[CrystalHits]/I");
 
   tree->Branch("ntCFT",   &event.ntCFT,  "ntCFT/I");
+  tree->Branch("nP_CFT",   &event.nP_CFT,  "nP_CFT/I");
+  tree->Branch("nPi_CFT",   &event.nPi_CFT,  "nPi_CFT/I");
+
   tree->Branch("BGO_Edep",   event.BGO_Edep,  "BGO_Edep[ntCFT]/D");
+  tree->Branch("BGO_Edep_proton", event.BGO_Edep_proton, "BGO_Edep_proton[nP_CFT]/D");
+  tree->Branch("BGO_Edep_pion",   event.BGO_Edep_pion,   "BGO_Edep_pion[nPi_CFT]/D");
   tree->Branch("TotalEdep",   event.TotalEdep,  "TotalEdep[ntCFT]/D");
   tree->Branch("CFT_TotalEdep",   event.CFT_TotalEdep,  "CFT_TotalEdep[ntCFT]/D");
   tree->Branch("CFT_NormTotalEdep",   event.CFT_NormTotalEdep,  "CFT_NormTotalEdep[ntCFT]/D");
@@ -1658,11 +1710,16 @@ void DefineHistograms( const char *filename )
     sprintf(buf1, "CFT_MaxFiberEdep%d", i);
     sprintf(buf2, "CFT_MaxFiberEdep%d[ntCFT]/D", i);
     tree->Branch(buf1,   event.CFT_MaxFiberEdep[i],  buf2);
+
+    sprintf(buf1, "CFT_MaxFiberEdep%d_proton", i);
+    sprintf(buf2, "CFT_MaxFiberEdep%d_proton[nP_CFT]/D", i);
+    tree->Branch(buf1,   event.CFT_MaxFiberEdep_proton[i],  buf2);
+
+    sprintf(buf1, "CFT_MaxFiberEdep%d_pion", i);
+    sprintf(buf2, "CFT_MaxFiberEdep%d_pion[nPi_CFT]/D", i);
+    tree->Branch(buf1,   event.CFT_MaxFiberEdep_pion[i],  buf2);
   }
 
-
-  tree->Branch("nP_CFT",   &event.nP_CFT,  "nP_CFT/I");
-  tree->Branch("nPi_CFT",   &event.nPi_CFT,  "nPi_CFT/I");
 }
 
 bool ConfMan::InitializeParameterFiles(void)

@@ -1,4 +1,4 @@
-#!/bin/sh                                                                                                                                                                            
+#!/bin/sh
 
 if [ $# -ne 1 ] && [ $# -ne 2 ]; then
     echo "Usage : FilterSubmitter.sh [START RUN#] [RUN_NUM_IN_ONE_JOB]"
@@ -16,6 +16,7 @@ i=1
 while [ $i -le $JOB_NUM ]
 do
     ./RunLambdaPForCondor.sh $RUNNUM
+    # ./RunCFTPForCondor.sh $RUNNUM
     RUNNUM=$(($RUNNUM+1))
     i=$(($i+1))
 done
