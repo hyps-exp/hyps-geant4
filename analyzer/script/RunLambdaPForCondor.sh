@@ -20,21 +20,21 @@ cp -f $DATADIR/$IN_FILE\.gz $DATADIR/tmp/
 
 BIN=analysLambdaProtonScat
 
-#if [ -f conf/analyzer.conf.CFT.$RUNNUM ] 
+#if [ -f conf/analyzer.conf.CFT.$RUNNUM ]
 #then
 #    CONF_FILE=conf/analyzer.conf.CFT.$RUNNUM
 #else
 #    CONF_FILE=conf/analyzer.conf.CFT
 #fi
-CONF_FILE=$ANADIR/../param_sim/conf/geant4_hyps.conf
+CONF_FILE=$ANADIR/../param-sim/conf/geant4_hyps.conf
 ROOT_FILE=run$RUNNUM\_ana.root
 # ROOT_FILE=run$RUNNUM\_ana\_100.root
 
 echo gzip -d $DATADIR/tmp/$IN_FILE\.gz
 gzip -d $DATADIR/tmp/$IN_FILE\.gz
 
-echo ./bin/$BIN  $CONF_FILE  $DATADIR/tmp/$IN_FILE $ROOTDIR/$ROOT_FILE  
-./bin/$BIN  $CONF_FILE  $DATADIR/tmp/$IN_FILE $ROOTDIR/$ROOT_FILE  
+echo ./bin/$BIN  $CONF_FILE  $DATADIR/tmp/$IN_FILE $ROOTDIR/$ROOT_FILE
+./bin/$BIN  $CONF_FILE  $DATADIR/tmp/$IN_FILE $ROOTDIR/$ROOT_FILE
 
 echo rm -f $DATADIR/tmp/$IN_FILE
 rm -f $DATADIR/tmp/$IN_FILE
