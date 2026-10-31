@@ -26,7 +26,7 @@ BIN=analysCFT
 #else
 #    CONF_FILE=conf/analyzer.conf.CFT
 #fi
-CONF_FILE=$ANADIR/../param_sim/conf/geant4_hyps.conf
+CONF_FILE=$ANADIR/../param-sim/conf/geant4_hyps.conf
 ROOT_FILE=run$RUNNUM\_ana.root
 # ROOT_FILE=run$RUNNUM\_ana\_100.root
 
