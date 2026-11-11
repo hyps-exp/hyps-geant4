@@ -1,0 +1,25 @@
+#!/bin/sh
+
+if [ $# -ne 1 ]; then
+    echo "Usage : " $0 " [start run#]"
+    exit 1
+fi
+
+###########################################################
+
+bsub_opt="-q s"			# for a short job
+# bsub_opt="-q l"			# for a long job
+
+###########################################################
+
+dirWork=$(cd $(dirname $0); pwd)/..
+
+pathBin=$dirWork/script
+pathLog="log"
+
+###########################################################
+bin="$pathBin/FilterAllRun_analysis-tools.sh"
+log="../$pathLog/run$1.log"
+
+echo "$> bsub -o $log $bin $1 2>&1"
+bsub $bsub_opt -o $log $bin $1 2>&1
