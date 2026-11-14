@@ -21,5 +21,5 @@ pathLog="log"
 bin="$pathBin/FilterAllRun_analysis-tools.sh"
 log="../$pathLog/run$1.log"
 
-echo "$> bsub -o $log $bin $1 2>&1"
-bsub $bsub_opt -o $log $bin $1 2>&1
+echo "$> bsub -K -o $log $bin $1 2>&1"
+bsub $bsub_opt -K -o $log $bin $1 2>&1

@@ -21,5 +21,5 @@ pathLog="log"
 bin="$pathBin/FilterSubmitter_analysis-tools.sh"
 log="$dirWork/$pathLog/run0$1.log"
 
-echo "$> bsub -o $log $bin $1 $2 2>&1"
-bsub $bsub_opt -o $log $bin $1 $2 2>&1
+echo "$> bsub -K -o $log $bin $1 $2 2>&1"
+bsub $bsub_opt -K -o $log $bin $1 $2 2>&1
